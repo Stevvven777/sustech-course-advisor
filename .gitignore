@@ -1,0 +1,7 @@
+node_modules/
+dist/
+outputs/
+*.advisor.json
+*.plan.json
+*.pdf
+.DS_Store
