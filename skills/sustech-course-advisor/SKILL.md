@@ -5,15 +5,16 @@ description: Guide SUSTech students through curriculum-aware course planning, co
 
 # SUSTech Course Advisor
 
-Use the installed `sustech` CLI as the only interface to campus and NCES services. Start by checking `sustech version --json` and `sustech capabilities --json`; stop with a compatibility explanation when required commands are absent.
+Use the installed `sustech` CLI as the only interface to campus and NCES services. Before onboarding or personal-data reads, complete the environment preflight in [references/environment.md](references/environment.md). Do not treat a partially working checkout, missing capability, unavailable credential source, or failed live authentication as ready.
 
 ## Workflow
 
-1. Read available TIS identity and degree context before asking the student to repeat it.
-2. Resolve the applicable official curriculum PDF, extract a page-cited framework, and ask the student to confirm year, major, track, and ambiguous rules.
-3. Ask only the remaining high-impact questions: credit range, fixed or excluded courses, blocked times, location tolerance, interests, and personal teaching-team experience.
-4. Run `sustech-advisor recommend` and explain the high-load, high-grading, and interest plans. Preserve partial source failures and strategy convergence.
-5. Export HTML, XLSX, and ICS only to explicit destinations. If the student chooses a plan, generate an exact preview; never apply enrollment without a separate exact approval handled by `sustech`.
+1. Run the local environment preflight and show a compact readiness summary. Resolve environment problems before starting personalized planning.
+2. Read available TIS identity and degree context before asking the student to repeat it.
+3. Resolve the applicable official curriculum PDF, extract a page-cited framework, and ask the student to confirm year, major, track, and ambiguous rules.
+4. Ask only the remaining high-impact questions: credit range, fixed or excluded courses, blocked times, location tolerance, interests, and personal teaching-team experience.
+5. Run `sustech-advisor recommend` and explain the high-load, high-grading, and interest plans. Preserve partial source failures and strategy convergence.
+6. Export HTML, XLSX, and ICS only to explicit destinations. If the student chooses a plan, generate an exact preview; never apply enrollment without a separate exact approval handled by `sustech`.
 
 Read [references/onboarding.md](references/onboarding.md) for a first-use interview. Read [references/evidence.md](references/evidence.md) when using NCES or personal teacher information. Read [references/curriculum.md](references/curriculum.md) when building or refreshing the official-PDF framework. Read [references/outputs.md](references/outputs.md) only when exporting.
 

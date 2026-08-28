@@ -2,18 +2,18 @@
 import { mkdir, open, readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { guidedProfile } from "./interview/init.js";
+import { inspectEnvironment } from "./core/environment.js";
 import { array, record, runSustech } from "./core/sustech.js";
 import { loadProfile, loadResult, writeJsonExclusive } from "./core/store.js";
 import { recommendCourses } from "./solver/recommend.js";
 import { renderHtml } from "./exporters/html.js";
-import { buildWorkbook } from "./exporters/xlsx.js";
 import { renderStrategyIcs } from "./exporters/ics.js";
 import type { AdvisorResult, CourseSection, NcesCourseEvidence, Strategy } from "./types.js";
 
 const HELP = `sustech-advisor — guided SUSTech course planning
 
 Usage:
-  sustech-advisor doctor
+  sustech-advisor doctor [--profile NAME] [--live]
   sustech-advisor init --path FILE [--overwrite]
   sustech-advisor show --path FILE
   sustech-advisor refresh --path FILE [--overwrite]
@@ -26,7 +26,7 @@ async function main(argv: string[]): Promise<void> {
   const [command, ...rest] = argv;
   if (!command || command === "help" || rest.includes("--help")) { process.stdout.write(HELP); return; }
   const flags = parseFlags(rest);
-  if (command === "doctor") return doctor();
+  if (command === "doctor") return doctor(flags);
   if (command === "init") {
     const path = required(flags.path, "--path");
     const profile = await guidedProfile();
@@ -45,14 +45,10 @@ async function main(argv: string[]): Promise<void> {
   throw new Error(`Unknown command: ${command}`);
 }
 
-async function doctor(): Promise<void> {
-  const version = record(await runSustech(["version"]));
-  const caps = record(await runSustech(["capabilities"]));
-  const commands = new Set(array<Record<string,unknown>>(caps.capabilities).map((item) => String(item.command)));
-  const requiredCaps = ["tis courses search","tis courses available","tis degree progress","nces search","tis selection preview","curriculum sources","curriculum fetch"];
-  const missing = requiredCaps.filter((capability) => !commands.has(capability));
-  process.stdout.write(`${JSON.stringify({ ok: missing.length === 0, version, missingCapabilities: missing }, null, 2)}\n`);
-  if (missing.length) process.exitCode = 1;
+async function doctor(flags: Flags): Promise<void> {
+  const report = await inspectEnvironment({ profile: stringFlag(flags.profile), live: flags.live === true });
+  process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+  if (!report.ok) process.exitCode = 1;
 }
 
 async function recommend(flags: Flags): Promise<void> {
@@ -74,6 +70,7 @@ async function recommend(flags: Flags): Promise<void> {
 
 async function exportResult(flags: Flags): Promise<void> {
   const result = await loadResult(required(flags.input,"--input"));
+  const { buildWorkbook } = await import("./exporters/xlsx.js");
   await writeBytes(required(flags.html,"--html"),Buffer.from(renderHtml(result)),flags.overwrite===true);
   await writeBytes(required(flags.xlsx,"--xlsx"),await buildWorkbook(result),flags.overwrite===true);
   const directory=resolve(required(flags["ics-dir"],"--ics-dir")); await mkdir(directory,{recursive:true});
@@ -90,7 +87,7 @@ async function preview(flags: Flags): Promise<void> {
 }
 
 type Flags=Record<string,string|boolean>;
-function parseFlags(args:string[]):Flags{const result:Flags={};for(let i=0;i<args.length;i++){const arg=args[i];if(!arg.startsWith("--"))throw new Error(`Unexpected argument: ${arg}`);const key=arg.slice(2);if(key==="overwrite")result[key]=true;else result[key]=args[++i]??"";}return result;}
+function parseFlags(args:string[]):Flags{const result:Flags={};for(let i=0;i<args.length;i++){const arg=args[i];if(!arg.startsWith("--"))throw new Error(`Unexpected argument: ${arg}`);const key=arg.slice(2);if(key==="overwrite"||key==="live")result[key]=true;else result[key]=args[++i]??"";}return result;}
 function required(value:string|boolean|undefined,name:string):string{if(typeof value!=="string"||!value.trim())throw new Error(`${name} is required.`);return value.trim();}
 function stringFlag(value:string|boolean|undefined):string|undefined{return typeof value==="string"&&value.trim()?value.trim():undefined;}
 async function writeBytes(path:string,bytes:Buffer,overwrite:boolean):Promise<void>{const target=resolve(path);await mkdir(dirname(target),{recursive:true});const handle=await open(target,overwrite?"w":"wx",0o600);try{await handle.writeFile(bytes);}finally{await handle.close();}}

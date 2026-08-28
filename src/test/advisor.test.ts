@@ -5,6 +5,7 @@ import { recommendCourses } from "../solver/recommend.js";
 import { renderHtml } from "../exporters/html.js";
 import { renderStrategyIcs } from "../exporters/ics.js";
 import { buildWorkbook } from "../exporters/xlsx.js";
+import { inspectEnvironment, versionAtLeast } from "../core/environment.js";
 import type { AdvisorProfile, CourseSection, NcesCourseEvidence } from "../types.js";
 
 test("multi-person NCES evidence is attributable only to the exact complete team", () => {
@@ -41,6 +42,27 @@ test("advisor workbook is a real XLSX zip with all strategy sheets", async () =>
   const workbook = await buildWorkbook(result);
   assert.equal(workbook.subarray(0, 2).toString(), "PK");
   assert.ok(workbook.length > 5_000);
+});
+
+test("environment preflight checks project, capabilities, consequences, and live TIS auth", async () => {
+  assert.equal(versionAtLeast("20.18.0", "20.18.0"), true);
+  assert.equal(versionAtLeast("20.17.9", "20.18.0"), false);
+  const commands = ["version","capabilities","consequences","auth status","auth check","tis courses search","tis courses available","tis degree progress","nces search","tis selection preview","curriculum sources","curriculum fetch"];
+  const report = await inspectEnvironment({
+    profile: "student",
+    live: true,
+    run: async (args) => {
+      const command = args.filter((arg) => !arg.startsWith("--") && arg !== "student" && arg !== "tis").join(" ");
+      if (command === "version") return {version:"0.8.4",runtime:"node v20.18.0"};
+      if (command === "capabilities") return {capabilities:commands.map((name)=>({command:name}))};
+      if (command === "consequences") return {consequences:["tis.enroll","tis.cart.update","curriculum.fetch"].map((operation)=>({operation}))};
+      if (command === "auth status") return {configured:true,credentialAvailable:true,backendAvailable:true,backend:"test",persistent:true,maskedSid:"12****34"};
+      if (command === "auth check") return {service:"tis",authenticated:true};
+      throw new Error(`unexpected command: ${args.join(" ")}`);
+    },
+  });
+  assert.equal(report.ok, true);
+  assert.equal((report.authentication as Record<string,unknown>).profile, "student");
 });
 
 function fixtureProfile(): AdvisorProfile { return {kind:"sustech-advisor-profile",schemaVersion:"1",identity:{cohort:2023,major:"计算机科学与技术"},curriculum:{title:"fixture",confirmed:true,courses:[{code:"CS101",required:true,module:"专业基础",sourcePage:12,confidence:"verified"},{code:"MA101",required:true,module:"数学",sourcePage:4,confidence:"verified"}],manualReview:[]},preferences:{minCredits:0,targetCredits:6,maxCredits:8,blocked:[],mustInclude:[],exclude:[],interests:["计算机"],preferredTeams:[],avoidedTeams:[]}}; }
