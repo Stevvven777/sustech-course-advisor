@@ -7,3 +7,5 @@ For every structured course rule record the course code, requirement/module, req
 Do not reproduce whole PDFs in the repository. Do not turn prose such as placement conditions, overlapping category minima, substitutions, or track-specific exceptions into exact rules unless the document is unambiguous. Put unresolved text into `manualReview` with a page reference.
 
 Use TIS grades and enrollment only to mark progress against this framework. If TIS disagrees, keep both observations and recommend confirmation with the department or Teaching Affairs.
+
+`sustech.online` may supply trusted community explanations or help the student understand SUSTech-specific terminology, but it does not establish the applicable curriculum document or resolve an ambiguous requirement. Cite it separately from the official PDF and keep its date visible when available.

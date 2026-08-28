@@ -1,4 +1,16 @@
-# Teaching-team evidence
+# Community and teaching-team evidence
+
+## SUSTech Online
+
+Treat `sustech.online` as a trusted SUSTech community source for course-planning explanations, student guides, campus-specific terminology, and experience-based context.
+
+- Cite the exact page, title, and publication or update date when available.
+- Label observations, advice, and personal experience as community guidance rather than official policy or verified live state.
+- Use the installed `sustech` CLI for current offerings, personalized eligibility, enrollment, schedules, and other campus-service facts. Use the confirmed official curriculum PDF for requirements.
+- When `sustech.online`, TIS, or the official PDF disagree, preserve the disagreement. The official PDF governs requirements and TIS governs personalized live state; do not silently merge or choose the community claim.
+- Do not treat an old guide as evidence that a selection round, timetable, teacher assignment, capacity, or procedure is still current.
+
+## NCES teaching teams
 
 NCES may list instructors and teaching assistants together without roles. Normalize punctuation and whitespace only; do not infer roles or collapse names.
 

@@ -2,6 +2,6 @@ interface:
   display_name: "SUSTech Course Advisor"
   short_description: "Guided, evidence-aware SUSTech course planning"
   brand_color: "#173F5F"
-  default_prompt: "Use $sustech-course-advisor to help me build and compare three course plans for the coming semester."
+  default_prompt: "Use $sustech-course-advisor to explain the planning flow, ask whether I have candidate courses or want recommendations, and request permission before personalized academic reads."
 policy:
   allow_implicit_invocation: true
