@@ -414,6 +414,12 @@ test("cached and render-only workflows never start the campus CLI and emit compl
       catalog: [course("CS101", "A", ["张老师"], 1), course("MA101", "A", ["王老师"], 3)], nces: [],
       sourceStatuses: { tisCatalog: { ok: true }, nces: { ok: true } },
     }));
+    const collidingDestination = process.platform === "win32" ? profilePath.toUpperCase() : profilePath;
+    await assert.rejects(
+      execFile(process.execPath, [cli, "workflow", "--mode", "cached", "--path", profilePath, "--semester", "2026-2027-1", "--cache", cachePath, "--destination", collidingDestination, "--overwrite"], { env: { ...process.env, SUSTECH_BIN: blockedExecutable } }),
+      (error: unknown) => Boolean(error && typeof error === "object" && "stderr" in error && /must not overwrite profile input/i.test(String(error.stderr))),
+    );
+    assert.equal((await loadProfile(profilePath)).kind, "sustech-advisor-profile");
     const cachedRun = await execFile(process.execPath, [cli, "workflow", "--mode", "cached", "--path", profilePath, "--semester", "2026-2027-1", "--cache", cachePath, "--destination", cachedPlan, "--week-one-monday", "2026-09-07"], { env: { ...process.env, SUSTECH_BIN: blockedExecutable } });
     const cachedOutput = JSON.parse(cachedRun.stdout) as Record<string, unknown>;
     const cachedReport = cachedOutput.report as Record<string, unknown>;
@@ -432,8 +438,11 @@ test("cached and render-only workflows never start the campus CLI and emit compl
     assert.equal(renderReport.proxyMode, "unused");
     assert.equal((renderReport.cache as Record<string, unknown>).status, "not-used");
     assert.ok((renderReport.totalWallClockMs as number) >= 0);
-    assert.deepEqual((renderReport.stages as Array<Record<string, unknown>>).map((stage) => stage.name), ["result-load", "audit", "render-html", "render-xlsx", "render-ics"]);
-    assert.equal((JSON.parse(await readFile(reportFile, "utf8")) as Record<string, unknown>).mode, "render-only");
+    assert.deepEqual((renderReport.stages as Array<Record<string, unknown>>).map((stage) => stage.name), ["result-load", "audit", "render-html", "render-xlsx", "render-ics", "report-write"]);
+    const persistedReport = JSON.parse(await readFile(reportFile, "utf8")) as Record<string, unknown>;
+    assert.deepEqual(persistedReport, renderReport);
+    const measuredStages = (renderReport.stages as Array<Record<string, number>>).reduce((total, stage) => total + stage.durationMs, 0);
+    assert.ok((renderReport.totalWallClockMs as number) >= measuredStages);
     await access(renderedHtml);
     await access(renderedXlsx);
   } finally {

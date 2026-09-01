@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdir, open } from "node:fs/promises";
+import { mkdir, open, realpath } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { guidedProfile } from "./interview/init.js";
 import { inspectEnvironment } from "./core/environment.js";
@@ -102,7 +102,7 @@ async function workflow(flags: Flags): Promise<void> {
   const round = stringFlag(flags.round);
   const cachePath = required(flags.cache, "--cache");
   const destination = required(flags.destination, "--destination");
-  assertDistinctPaths([
+  await assertDistinctPaths([
     ["profile input", profilePath], ["source cache", cachePath], ["plan destination", destination],
     ...(stringFlag(flags.report) ? [["workflow report", stringFlag(flags.report)!] as [string, string]] : []),
   ]);
@@ -144,8 +144,7 @@ async function workflow(flags: Flags): Promise<void> {
   }
   await recorder.stage("audit", async () => assertAuditableResult(result));
   const resultOutput = await recorder.stage("result-write", async () => writeJsonExclusive(destination, result, flags.overwrite === true));
-  const report = recorder.report();
-  const reportOutput = await writeWorkflowReport(flags, report);
+  const { report, reportOutput } = await finalizeWorkflowReport(flags, recorder);
   process.stdout.write(`${JSON.stringify({ ok: true, result: resultOutput, ...(cacheOutput ? { cache: cacheOutput } : {}), ...(reportOutput ? { reportFile: reportOutput } : {}), report }, null, 2)}\n`);
 }
 
@@ -155,7 +154,7 @@ async function renderOnlyWorkflow(flags: Flags): Promise<void> {
   const xlsx = required(flags.xlsx, "--xlsx");
   const icsDir = required(flags["ics-dir"], "--ics-dir");
   const reportPath = stringFlag(flags.report);
-  assertDistinctPaths([
+  await assertDistinctPaths([
     ["plan input", input], ["HTML output", html], ["XLSX output", xlsx],
     ...(reportPath ? [["workflow report", reportPath] as [string, string]] : []),
     ...(["high-load", "high-grading", "interest"] as Strategy[]).map((strategy): [string, string] => [`${strategy} ICS output`, resolve(icsDir, `${strategy}.ics`)]),
@@ -165,8 +164,7 @@ async function renderOnlyWorkflow(flags: Flags): Promise<void> {
   recorder.source("advisorResult", result.generatedAt);
   await recorder.stage("audit", async () => assertAuditableResult(result));
   const outputs = await exportArtifacts(result, flags, recorder);
-  const report = recorder.report();
-  const reportOutput = await writeWorkflowReport(flags, report);
+  const { report, reportOutput } = await finalizeWorkflowReport(flags, recorder);
   process.stdout.write(`${JSON.stringify({ ok: true, ...outputs, ...(reportOutput ? { reportFile: reportOutput } : {}), report }, null, 2)}\n`);
 }
 
@@ -201,8 +199,40 @@ function parseFlags(args:string[]):Flags{const result:Flags={};for(let i=0;i<arg
 function required(value:string|boolean|undefined,name:string):string{if(typeof value!=="string"||!value.trim())throw new Error(`${name} is required.`);return value.trim();}
 function stringFlag(value:string|boolean|undefined):string|undefined{return typeof value==="string"&&value.trim()?value.trim():undefined;}
 function integerFlag(value:string|boolean|undefined,name:string,fallback:number,min:number,max:number):number{if(value===undefined)return fallback;const parsed=typeof value==="string"?Number(value):NaN;if(!Number.isSafeInteger(parsed)||parsed<min||parsed>max)throw new Error(`${name} must be an integer from ${min} to ${max}.`);return parsed;}
-function assertDistinctPaths(entries:Array<[string,string]>):void{const seen=new Map<string,string>();for(const [label,path] of entries){const target=resolve(path);const existing=seen.get(target);if(existing)throw new Error(`${label} must not overwrite ${existing}: ${target}`);seen.set(target,label);}}
-async function writeWorkflowReport(flags:Flags,report:ReturnType<WorkflowRecorder["report"]>):Promise<string|undefined>{const path=stringFlag(flags.report);return path?writeJsonExclusive(path,report,flags.overwrite===true):undefined;}
+async function assertDistinctPaths(entries:Array<[string,string]>):Promise<void>{
+  const seen=new Map<string,string>();
+  for(const [label,path] of entries){
+    const target=await canonicalPath(path);
+    const existing=seen.get(target);
+    if(existing)throw new Error(`${label} must not overwrite ${existing}: ${resolve(path)}`);
+    seen.set(target,label);
+  }
+}
+async function canonicalPath(path:string):Promise<string>{
+  let cursor=resolve(path); const suffix:string[]=[];
+  while(true){
+    try{
+      const existing=await realpath(cursor); const target=resolve(existing,...suffix.reverse());
+      return process.platform==="win32"?target.toLowerCase():target;
+    }catch(error){
+      if(!(error&&typeof error==="object"&&"code" in error&&error.code==="ENOENT"))throw error;
+      const parent=dirname(cursor);
+      if(parent===cursor){const target=resolve(path);return process.platform==="win32"?target.toLowerCase():target;}
+      suffix.push(basename(cursor)); cursor=parent;
+    }
+  }
+}
+async function finalizeWorkflowReport(flags:Flags,recorder:WorkflowRecorder):Promise<{report:ReturnType<WorkflowRecorder["report"]>;reportOutput?:string}>{
+  const path=stringFlag(flags.report); let reportOutput:string|undefined;
+  if(path){
+    // A measured first write avoids pretending report I/O is free; the atomic second pass commits that final measurement.
+    const provisional=recorder.report();
+    reportOutput=await recorder.stage("report-write",async()=>writeJsonExclusive(path,provisional,flags.overwrite===true));
+  }
+  const report=recorder.report();
+  if(reportOutput)await writeJsonExclusive(reportOutput,report,true);
+  return{report,...(reportOutput?{reportOutput}:{})};
+}
 async function writeBytes(path:string,bytes:Buffer,overwrite:boolean):Promise<void>{const target=resolve(path);await mkdir(dirname(target),{recursive:true});const handle=await open(target,overwrite?"w":"wx",0o600);try{await handle.writeFile(bytes);}finally{await handle.close();}}
 
 main(process.argv.slice(2)).catch((error)=>{process.stderr.write(`Error: ${error instanceof Error?error.message:String(error)}\n`);process.exitCode=1;});
