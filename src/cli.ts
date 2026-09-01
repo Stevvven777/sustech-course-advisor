@@ -6,6 +6,7 @@ import { inspectEnvironment } from "./core/environment.js";
 import { array, record, runSustech } from "./core/sustech.js";
 import { loadProfile, loadResult, writeJsonExclusive } from "./core/store.js";
 import { recommendCourses } from "./solver/recommend.js";
+import { auditAdvisorResult } from "./solver/audit.js";
 import { renderHtml } from "./exporters/html.js";
 import { renderStrategyIcs } from "./exporters/ics.js";
 import type { AdvisorResult, CourseSection, NcesCourseEvidence, Strategy } from "./types.js";
@@ -18,6 +19,7 @@ Usage:
   sustech-advisor show --path FILE
   sustech-advisor refresh --path FILE [--overwrite]
   sustech-advisor recommend --path FILE --semester TERM [--round ID] [--week-one-monday YYYY-MM-DD] [--destination FILE] [--overwrite]
+  sustech-advisor audit --input PLAN.json
   sustech-advisor export --input PLAN.json --html FILE --xlsx FILE --ics-dir DIR [--overwrite]
   sustech-advisor preview --input PLAN.json --strategy high-load|high-grading|interest --operation cart|enroll
 `;
@@ -40,6 +42,12 @@ async function main(argv: string[]): Promise<void> {
     process.stdout.write(`${await writeJsonExclusive(path, profile, flags.overwrite === true)}\n`); return;
   }
   if (command === "recommend") return recommend(flags);
+  if (command === "audit") {
+    const report = auditAdvisorResult(await loadResult(required(flags.input,"--input")));
+    process.stdout.write(`${JSON.stringify(report,null,2)}\n`);
+    if (!report.ok) process.exitCode = 1;
+    return;
+  }
   if (command === "export") return exportResult(flags);
   if (command === "preview") return preview(flags);
   throw new Error(`Unknown command: ${command}`);

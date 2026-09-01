@@ -14,9 +14,12 @@ export function recommendCourses(input: {
   validateCredits(input.profile);
   const completed = new Set(input.profile.curriculum.courses.filter((course) => course.completed).map((course) => upper(course.code)));
   const excluded = new Set(input.profile.preferences.exclude.map(upper));
-  const rules = new Map(input.profile.curriculum.courses.map((course) => [upper(course.code), course]));
+  const rules = new Map(input.profile.curriculum.courses.filter((course) => course.confidence === "verified").map((course) => [upper(course.code), course]));
+  const must = new Set(input.profile.preferences.mustInclude.map(upper));
+  const allowed = new Set([...rules.keys(), ...must]);
   const available = input.catalog.filter((section) =>
-    !completed.has(upper(section.code))
+    allowed.has(upper(section.code))
+    && !completed.has(upper(section.code))
     && !excluded.has(upper(section.code))
     && section.schedule.length > 0
     && !section.schedule.some((slot) => input.profile.preferences.blocked.some((blocked) => overlapsBlocked(slot, blocked))),
@@ -70,21 +73,25 @@ function buildPlan(
       && totalCredits(selected) + section.credits <= profile.preferences.maxCredits,
     );
     if (!choice) continue;
-    const useful = rules.has(code) || must.has(code);
-    if (!useful && strategy !== "interest" && strategy !== "high-grading") continue;
-    if (!useful && selected.length > 0 && totalCredits(selected) >= profile.preferences.targetCredits) continue;
     selected.push(choice);
     reasons[choice.rwh] = explain(choice, strategy, profile, rules.get(code), evidence.get(choice));
   }
   const missingMust = [...must].filter((code) => !selected.some((section) => upper(section.code) === code));
+  const selectedCredits = totalCredits(selected);
+  const confirmedCredits = totalCredits(selected.filter((section) => rules.has(upper(section.code))));
+  const unresolvedCredits = Math.round((selectedCredits - confirmedCredits) * 100) / 100;
   const warnings = [
-    ...(totalCredits(selected) < profile.preferences.minCredits ? [`Only ${totalCredits(selected)} credits could be placed, below the requested minimum.`] : []),
+    ...(selectedCredits < profile.preferences.minCredits ? [`Only ${selectedCredits} credits could be placed, below the requested minimum.`] : []),
+    ...(selectedCredits < profile.preferences.targetCredits ? [`Confirmed curriculum and explicitly requested candidates provide ${selectedCredits} credits, ${Math.round((profile.preferences.targetCredits - selectedCredits) * 100) / 100} below the target. Do not auto-fill with unresolved courses; ask the student how to handle the shortfall.`] : []),
+    ...(unresolvedCredits > 0 ? [`${unresolvedCredits} credits come from explicitly requested courses whose curriculum membership is unresolved; do not count them as confirmed degree-credit coverage.`] : []),
     ...(missingMust.length ? [`Required-by-user courses not placed: ${missingMust.join(", ")}.`] : []),
   ];
   return {
     strategy,
     sections: selected,
-    totalCredits: totalCredits(selected),
+    totalCredits: selectedCredits,
+    confirmedCredits,
+    unresolvedCredits,
     requirementCoverage: selected.map((section) => rules.get(upper(section.code))).filter(Boolean).map((rule) => `${rule!.module}: ${rule!.code}`),
     reasons,
     evidence: Object.fromEntries(selected.map((section) => [section.rwh, evidence.get(section)!])),
@@ -131,7 +138,7 @@ function interestScore(section: CourseSection, interests: string[]): number {
 }
 
 function explain(section: CourseSection, strategy: Strategy, profile: AdvisorProfile, rule: AdvisorProfile["curriculum"]["courses"][number] | undefined, evidence?: TeachingTeamEvidence): string[] {
-  const reasons = [rule ? `Matches official curriculum module “${rule.module}” (PDF p.${rule.sourcePage}).` : "Elective outside the extracted curriculum course list."];
+  const reasons = [rule ? `Matches official curriculum module “${rule.module}” (PDF p.${rule.sourcePage}).` : "Explicitly requested by the student; curriculum membership remains unresolved and is excluded from confirmed requirement coverage."];
   if (strategy === "high-load") reasons.push(`${section.credits} credits contribute to the high-load target of ${profile.preferences.targetCredits}.`);
   if (strategy === "high-grading") reasons.push(evidence?.gradingScore !== undefined ? `Exact-team NCES grading evidence: ${evidence.gradingScore}/100, confidence ${evidence.confidence}.` : "No attributable team-level NCES grading score; selected using remaining constraints.");
   if (strategy === "interest") reasons.push(`Interest matches: ${profile.preferences.interests.filter((interest) => interestScore(section, [interest]) > 0).join(", ") || "none explicit"}.`);
@@ -160,7 +167,7 @@ function upper(value: string): string { return value.trim().toUpperCase(); }
 
 function validateCredits(profile: AdvisorProfile): void {
   const { minCredits, targetCredits, maxCredits } = profile.preferences;
-  if (!(minCredits >= 0 && minCredits <= targetCredits && targetCredits <= maxCredits && maxCredits <= 40)) {
-    throw new Error("Credit preferences must satisfy 0 <= min <= target <= max <= 40.");
+  if (!(minCredits >= 0 && minCredits <= targetCredits && targetCredits <= maxCredits && maxCredits <= 25)) {
+    throw new Error("Main-program credit preferences must satisfy 0 <= min <= target <= max <= 25. Track minor-program credits separately.");
   }
 }

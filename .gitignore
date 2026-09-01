@@ -5,3 +5,14 @@ outputs/
 *.plan.json
 *.pdf
 .DS_Store
+
+# Local development and personalized planning artifacts
+/AGENTS.md
+/docs/friction-log.md
+/docs/token-usage-log.md
+/docs/2026-fall-course-plans.md
+/docs/snapshots/
+/tmp/
+/timetable-web/
+/.npm-cache/
+**/.openai/hosting.json

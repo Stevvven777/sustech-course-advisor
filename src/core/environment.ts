@@ -1,7 +1,7 @@
 import { access, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
-import { array, record, runSustech } from "./sustech.js";
+import { array, proxyModeFromEnv, record, runSustech } from "./sustech.js";
 
 const MINIMUM_NODE = "20.18.0";
 
@@ -40,6 +40,7 @@ export async function inspectEnvironment(options: EnvironmentOptions = {}): Prom
   const runtimeDependenciesAvailable = await canLoadRuntimeDependencies();
   const runtimeOk = versionAtLeast(process.versions.node, MINIMUM_NODE);
   const executable = process.env.SUSTECH_BIN?.trim() || "sustech";
+  const proxyMode = proxyModeFromEnv(process.env);
 
   let version: Record<string, unknown> = {};
   let capabilities: Record<string, unknown> = {};
@@ -109,6 +110,11 @@ export async function inspectEnvironment(options: EnvironmentOptions = {}): Prom
       runtime: version.runtime,
       missingCapabilities,
       missingConsequences,
+    },
+    network: {
+      proxyMode,
+      defaultProxyMode: "direct",
+      switch: "SUSTECH_ADVISOR_PROXY_MODE=direct|inherit",
     },
     authentication: {
       profile,

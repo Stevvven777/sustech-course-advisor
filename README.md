@@ -80,6 +80,8 @@ SUSTech Course Advisor 是一个面向南方科技大学学生的本地选课规
 
 接下来 Agent 会自行说明流程并检查环境。缺少 Node.js、`sustech` 或 `sustech-advisor` 时，它会先说明安装来源、版本、位置和影响，在你确认后自动完成可执行的配置；需要登录时，它会引导你在安全的本地交互界面完成，不会在聊天中索要密码。环境就绪后，它才会征求个人信息读取许可、请你确认学籍摘要，再给出三套可比较的方案。
 
+项目以 macOS、Windows 和 Linux 三端兼容为约束。核心逻辑使用跨平台 Node.js；文档在 shell 语法不同时分别给出 Windows PowerShell 与 macOS/Linux POSIX shell 写法。
+
 > [!NOTE]
 > 该 Skill 遵循开放的 Agent Skills 目录规范，可在**支持该规范**且能够读取本地文件、执行本地命令的 Agent 中复用。不同客户端的导入入口可能不同；通用的项目级目录是 `.agents/skills/sustech-course-advisor/`。Agent 可以帮助配置环境，但不会绕过联网下载、系统级安装、登录或个人信息读取所需的确认。
 
@@ -94,6 +96,8 @@ SUSTech Course Advisor 是一个面向南方科技大学学生的本地选课规
 | `recommend` | 生成高负载、高评分证据和兴趣导向方案 |
 | `export` | 导出 HTML、XLSX 和 ICS |
 | `preview` | 为一个方案生成 TIS 购物车或选课预览，不执行 apply |
+
+校园请求默认直连。重复出现实时查询超时后，可在当前终端临时设置 `SUSTECH_ADVISOR_PROXY_MODE=inherit` 以继承代理进行对照；Windows PowerShell 使用 `$env:SUSTECH_ADVISOR_PROXY_MODE="inherit"`，macOS/Linux 使用 `export SUSTECH_ADVISOR_PROXY_MODE=inherit`。完整启用与恢复方法见[环境说明](./skills/sustech-course-advisor/references/environment.md)。
 
 ## 隐私与安全
 
@@ -200,6 +204,8 @@ Regular users do not need to learn the CLI commands below. The bundled Agent Ski
 
 The Agent will explain the flow and inspect the environment. If Node.js, `sustech`, or `sustech-advisor` is missing, it will first show the install source, version, destination, and impact, then complete the supported setup after you approve it. When login is needed, it will guide you through a secure local prompt and never ask for your password in chat. Only after the environment is ready will it request permission for personal academic reads, ask you to confirm the redacted snapshot, and present three comparable plans.
 
+The project treats macOS, Windows, and Linux support as a product constraint. Core behavior uses cross-platform Node.js, and the documentation gives separate Windows PowerShell and macOS/Linux POSIX shell commands when syntax differs.
+
 > [!NOTE]
 > The Skill follows the open Agent Skills directory format and can be reused by any **skills-compatible** Agent that can read local files and execute local commands. Import mechanisms vary by client; `.agents/skills/sustech-course-advisor/` is the common project-level location. The Agent can help configure the environment, but it cannot bypass confirmations required for downloads, system-wide installs, login, or personal-data access.
 
@@ -214,6 +220,8 @@ The Agent will explain the flow and inspect the environment. If Node.js, `sustec
 | `recommend` | Generate high-load, high-grading-evidence, and interest-aligned plans |
 | `export` | Export HTML, XLSX, and ICS artifacts |
 | `preview` | Generate TIS cart or enrollment previews without applying them |
+
+Campus requests use direct access by default. After repeated live-query timeouts, temporarily set `SUSTECH_ADVISOR_PROXY_MODE=inherit` in the current terminal for a comparison run: use `$env:SUSTECH_ADVISOR_PROXY_MODE="inherit"` in Windows PowerShell or `export SUSTECH_ADVISOR_PROXY_MODE=inherit` on macOS/Linux. See the [environment guide](./skills/sustech-course-advisor/references/environment.md) for activation and reset instructions.
 
 ## Privacy and safety
 

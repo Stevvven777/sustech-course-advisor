@@ -94,6 +94,8 @@ export interface RecommendedPlan {
   strategy: Strategy;
   sections: CourseSection[];
   totalCredits: number;
+  confirmedCredits: number;
+  unresolvedCredits: number;
   requirementCoverage: string[];
   reasons: Record<string, string[]>;
   evidence: Record<string, TeachingTeamEvidence>;

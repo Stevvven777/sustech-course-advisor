@@ -14,6 +14,8 @@ Treat `sustech.online` as a trusted SUSTech community source for course-planning
 
 NCES may list instructors and teaching assistants together without roles. Normalize punctuation and whitespace only; do not infer roles or collapse names.
 
+Use the unified label `teaching team` in student-facing schedules. Every occupied cell in the compact timetable view must list all team names alongside the course code and name. If roles are supplied reliably, optional role labels may be shown; otherwise list the complete names without guessing lecturer-versus-lab assignments. When space is tight, wrap text, reduce type within an accessible limit, or increase the cell height rather than hiding team members.
+
 - `exact-team`: course code and the order-insensitive complete name set match. The grading dimension may rank that section, with confidence based on review count and recency.
 - `partial-team`: at least one name overlaps but the sets differ. Show the record as ambiguous context and exclude its score from the main grading objective.
 - `course-only`: the course matches but no team does. Use only as weak course history and never describe it as evidence about a person.

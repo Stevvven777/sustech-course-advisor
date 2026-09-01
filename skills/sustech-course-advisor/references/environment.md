@@ -1,5 +1,7 @@
 # Environment preflight
 
+Support macOS, Windows, and Linux. Keep runtime behavior in cross-platform Node.js code; use platform-specific shell syntax only in clearly labeled examples. On Windows, account for npm-installed `.cmd` launchers. On macOS and Linux, invoke the executable directly without Windows shell wrapping.
+
 Run this after the brief process introduction and planning-path choice, but before authenticated onboarding or personal academic reads.
 
 1. Resolve the advisor command. Prefer `sustech-advisor` on `PATH`; from this source checkout, use `node <skill-root>/../../dist/cli.js`.
@@ -28,5 +30,44 @@ An execution sandbox may be able to read profile metadata while being unable to 
 - If host execution is unavailable, ask the student to run the exact redacted status or live-doctor command in their trusted interactive terminal and return only its structured, secret-free result.
 
 After login, verify readiness from the same execution context that will run personalized reads. If that context reports the credential ready, do not send the student through another login merely because an isolated context still reports it missing.
+
+## Campus network routing
+
+The advisor defaults to direct access. It launches every `sustech` child process with proxy variables removed and `NO_PROXY=*`. This affects only that child process; it does not change the user's shell, operating-system proxy, browser, or other applications. TIS, curriculum, authentication, and NCES commands therefore attempt a direct connection by default.
+
+The proxy mode is an explicit per-process switch:
+
+- `SUSTECH_ADVISOR_PROXY_MODE=direct` removes proxy variables. This is the default when the variable is absent.
+- `SUSTECH_ADVISOR_PROXY_MODE=inherit` preserves the current terminal's proxy variables for the `sustech` child process.
+
+Do not switch after one slow response. When multiple forced-live, read-only requests in the same network context repeatedly end in `NETWORK_TIMEOUT`, try one bounded comparison run with `inherit`. Report which mode was used and the result; do not persist the setting or modify the operating-system proxy automatically. If the inherited-proxy run is better, the student may keep the switch for that terminal session. An unsupported value is an error rather than a silent fallback.
+
+Windows PowerShell session:
+
+```powershell
+$env:SUSTECH_ADVISOR_PROXY_MODE = "inherit"
+sustech-advisor doctor --profile default --live
+```
+
+Return to the Windows default with:
+
+```powershell
+Remove-Item Env:SUSTECH_ADVISOR_PROXY_MODE
+```
+
+macOS or Linux POSIX shell session:
+
+```sh
+export SUSTECH_ADVISOR_PROXY_MODE=inherit
+sustech-advisor doctor --profile default --live
+```
+
+Return to the macOS/Linux default with:
+
+```sh
+unset SUSTECH_ADVISOR_PROXY_MODE
+```
+
+The switch applies to commands launched through the advisor; a separately invoked global `sustech` command is outside this wrapper.
 
 After the environment passes, still preserve source-level failures from later curriculum, TIS, and NCES calls. A successful preflight establishes compatibility and authentication only; it does not prove that every upstream source is currently available.
