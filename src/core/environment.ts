@@ -4,6 +4,8 @@ import { resolve } from "node:path";
 import { array, proxyModeFromEnv, record, runSustech } from "./sustech.js";
 
 const MINIMUM_NODE = "20.18.0";
+const DEFAULT_COMMAND_TIMEOUT_MS = 10_000;
+const MAX_COMMAND_TIMEOUT_MS = 60_000;
 
 export const REQUIRED_CAPABILITIES = [
   "version",
@@ -26,16 +28,18 @@ export const OPTIONAL_FEATURES = [{
   consequences: ["curriculum.fetch"],
 }] as const;
 
-type Runner = (args: string[]) => Promise<unknown>;
+type Runner = (args: string[], options: { timeoutMs: number }) => Promise<unknown>;
 
 export interface EnvironmentOptions {
   profile?: string;
   live?: boolean;
   run?: Runner;
+  commandTimeoutMs?: number;
 }
 
 export async function inspectEnvironment(options: EnvironmentOptions = {}): Promise<Record<string, unknown>> {
-  const runner = options.run ?? ((args) => runSustech(args));
+  const runner = options.run ?? ((args, runOptions) => runSustech(args, runOptions));
+  const commandTimeoutMs = environmentCommandTimeout(options.commandTimeoutMs);
   const profile = options.profile?.trim() || "default";
   const projectRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
   const packageData = await readProjectPackage(projectRoot);
@@ -59,7 +63,7 @@ export async function inspectEnvironment(options: EnvironmentOptions = {}): Prom
     ["consequences", ["consequences"], (value: unknown) => { consequences = record(value); }, installationErrors],
     ["auth status", ["auth", "status", "--profile", profile], (value: unknown) => { auth = record(value); }, authenticationErrors],
   ] as const) {
-    try { assign(await runner([...args])); }
+    try { assign(await runBounded(runner, [...args], commandTimeoutMs)); }
     catch (error) { errorTarget.push(`${name}: ${message(error)}`); }
   }
 
@@ -88,7 +92,7 @@ export async function inspectEnvironment(options: EnvironmentOptions = {}): Prom
     else if (!credentialAvailable) liveAuthentication = { requested: true, status: "skipped", reason: "No credential source is available for this profile." };
     else {
       try {
-        await runner(["auth", "check", "--service", "tis", "--profile", profile]);
+        await runBounded(runner, ["auth", "check", "--service", "tis", "--profile", profile], commandTimeoutMs);
         liveAuthentication = { requested: true, status: "passed" };
       } catch (error) {
         const code = message(error);
@@ -158,6 +162,26 @@ export async function inspectEnvironment(options: EnvironmentOptions = {}): Prom
     authenticationErrors,
     remediation,
   };
+}
+
+function environmentCommandTimeout(value: number | undefined): number {
+  if (value === undefined) return DEFAULT_COMMAND_TIMEOUT_MS;
+  if (!Number.isSafeInteger(value) || value < 1 || value > MAX_COMMAND_TIMEOUT_MS) {
+    throw new Error(`commandTimeoutMs must be an integer from 1 to ${MAX_COMMAND_TIMEOUT_MS}.`);
+  }
+  return value;
+}
+
+async function runBounded(runner: Runner, args: string[], timeoutMs: number): Promise<unknown> {
+  let watchdog: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    watchdog = setTimeout(() => reject(Object.assign(new Error("Environment command timed out."), { code: "COMMAND_TIMEOUT" })), timeoutMs);
+  });
+  try {
+    return await Promise.race([runner(args, { timeoutMs }), timeout]);
+  } finally {
+    if (watchdog) clearTimeout(watchdog);
+  }
 }
 
 export function versionAtLeast(actual: string, minimum: string): boolean {

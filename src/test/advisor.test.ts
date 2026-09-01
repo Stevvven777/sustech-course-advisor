@@ -290,6 +290,49 @@ test("credential-store failures do not misreport a compatible installation as br
   assert.deepEqual(report.authenticationErrors, ["auth status: CREDENTIAL_STORE_ERROR"]);
 });
 
+test("doctor bounds a hanging credential-store status check without breaking installation readiness", async () => {
+  const commands = ["version","capabilities","consequences","auth status","auth check","tis courses search","tis courses available","tis degree progress","nces search","tis selection preview"];
+  const startedAt = Date.now();
+  const report = await inspectEnvironment({
+    commandTimeoutMs: 25,
+    run: async (args) => {
+      const command = args.filter((arg) => !arg.startsWith("--") && arg !== "default").join(" ");
+      if (command === "version") return { version:"0.10.0" };
+      if (command === "capabilities") return { capabilities:commands.map((name)=>({command:name})) };
+      if (command === "consequences") return { consequences:["tis.enroll","tis.cart.update"].map((operation)=>({operation})) };
+      if (command === "auth status") return new Promise<never>(() => undefined);
+      throw new Error(`unexpected command: ${args.join(" ")}`);
+    },
+  });
+  assert.ok(Date.now() - startedAt < 1_000);
+  assert.equal(report.installationReady, true);
+  assert.equal(report.authenticationReady, false);
+  assert.deepEqual(report.installationErrors, []);
+  assert.deepEqual(report.authenticationErrors, ["auth status: COMMAND_TIMEOUT"]);
+});
+
+test("live doctor bounds a hanging authenticated read and reports a stable failure code", async () => {
+  const commands = ["version","capabilities","consequences","auth status","auth check","tis courses search","tis courses available","tis degree progress","nces search","tis selection preview"];
+  const report = await inspectEnvironment({
+    live: true,
+    commandTimeoutMs: 25,
+    run: async (args) => {
+      const command = args.filter((arg) => !arg.startsWith("--") && arg !== "default" && arg !== "tis").join(" ");
+      if (command === "version") return { version:"0.10.0" };
+      if (command === "capabilities") return { capabilities:commands.map((name)=>({command:name})) };
+      if (command === "consequences") return { consequences:["tis.enroll","tis.cart.update"].map((operation)=>({operation})) };
+      if (command === "auth status") return { configured:true, credentialAvailable:true, backendAvailable:true, backend:"test" };
+      if (command === "auth check") return new Promise<never>(() => undefined);
+      throw new Error(`unexpected command: ${args.join(" ")}`);
+    },
+  });
+  assert.equal(report.installationReady, true);
+  assert.equal(report.authenticationReady, false);
+  assert.deepEqual(report.authenticationErrors, ["auth check: COMMAND_TIMEOUT"]);
+  const live = (report.authentication as Record<string,Record<string,unknown>>).live;
+  assert.deepEqual(live, { requested:true, status:"failed", error:"COMMAND_TIMEOUT" });
+});
+
 test("diagnostics contain only projected metadata and retain at most ten local reports", async () => {
   const directory = await mkdtemp(join(tmpdir(), "advisor-diagnostics-"));
   try {

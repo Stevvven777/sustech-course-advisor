@@ -10,6 +10,7 @@ Detect the operating system and active shell before presenting or executing comm
 
 1. Resolve the advisor command. Prefer `sustech-advisor` on `PATH`; from this source checkout, use `node <skill-root>/../../dist/cli.js`.
 2. Run `sustech-advisor doctor --profile NAME`. It reports `installationReady` separately from `authenticationReady`, and checks the advisor build, supported Node.js runtime, the selected `sustech` executable, required capabilities and consequence records, credential backend, and locally available credential source.
+   Each underlying CLI probe is limited to ten seconds. `COMMAND_TIMEOUT` from `auth status` or `auth check` leaves a compatible installation ready but authentication not ready; do not loop, export credentials, or misclassify it as a proxy failure.
 3. For personalized planning, run it again with `--live` to perform one authenticated TIS check. This is a read, not permission for an enrollment mutation.
 4. Inspect both the process exit status and the JSON `ok` field. Summarize failures and the provided `remediation`; do not proceed as if a partial check passed.
 
