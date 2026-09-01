@@ -95,8 +95,11 @@ SUSTech Course Advisor 是一个面向南方科技大学学生的本地选课规
 | `show` | 查看已有 profile |
 | `refresh` | 刷新 TIS 培养方案进度时间戳 |
 | `recommend` | 生成高负载、高评分证据和兴趣导向方案 |
+| `workflow` | 显式运行 live、cached 或 render-only 路径，并输出完整执行证据 |
 | `export` | 导出 HTML、XLSX 和 ICS |
 | `preview` | 为一个方案生成 TIS 购物车或选课预览，不执行 apply |
+
+`workflow` 不会在三种模式间静默回退：`live` 在一个总超时预算内刷新权威课程事实，并把脱敏快照写到 `--cache`；`cached` 只使用该快照重新规划，同时明确报告数据年龄与是否过期；`render-only` 只读取已经审计过的 plan 并生成 HTML/XLSX/ICS，不启动 `sustech`。三种模式都报告来源时间、代理模式、各阶段耗时与重试次数、缓存状态和用户可见总耗时。具体命令见[工具说明](./skills/sustech-course-advisor/references/toolkit.md)。
 
 校园请求默认直连。重复出现实时查询超时后，可在当前终端临时设置 `SUSTECH_ADVISOR_PROXY_MODE=inherit` 以继承代理进行对照；Windows PowerShell 使用 `$env:SUSTECH_ADVISOR_PROXY_MODE="inherit"`，macOS/Linux 使用 `export SUSTECH_ADVISOR_PROXY_MODE=inherit`。完整启用与恢复方法见[环境说明](./skills/sustech-course-advisor/references/environment.md)。
 
@@ -216,12 +219,16 @@ The project treats macOS, Windows, and Linux support as a product constraint. Co
 | Command | Purpose |
 | --- | --- |
 | `doctor` | Check the build, Node.js, required `sustech` capabilities, consequence records, and credentials |
+| `diagnose` | Write a rotating projected diagnostic and an optional sanitized local support bundle |
 | `init` | Create a local advisor profile interactively |
 | `show` | Inspect an existing profile |
 | `refresh` | Refresh the TIS degree-progress timestamp |
 | `recommend` | Generate high-load, high-grading-evidence, and interest-aligned plans |
+| `workflow` | Explicitly run a live, cached, or render-only path with complete execution evidence |
 | `export` | Export HTML, XLSX, and ICS artifacts |
 | `preview` | Generate TIS cart or enrollment previews without applying them |
+
+`workflow` never silently falls back between modes. `live` refreshes authoritative course facts inside one total timeout budget and writes a redacted `--cache` snapshot. `cached` replans only from that snapshot and visibly reports its age and freshness. `render-only` reads an already audited plan and produces HTML/XLSX/ICS without starting `sustech`. Every mode reports source timestamps, proxy mode, stage durations and retry counts, cache state, and total user-visible wall-clock time. See the [toolkit](./skills/sustech-course-advisor/references/toolkit.md) for exact invocations.
 
 Campus requests use direct access by default. After repeated live-query timeouts, temporarily set `SUSTECH_ADVISOR_PROXY_MODE=inherit` in the current terminal for a comparison run: use `$env:SUSTECH_ADVISOR_PROXY_MODE="inherit"` in Windows PowerShell or `export SUSTECH_ADVISOR_PROXY_MODE=inherit` on macOS/Linux. See the [environment guide](./skills/sustech-course-advisor/references/environment.md) for activation and reset instructions.
 

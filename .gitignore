@@ -4,6 +4,8 @@ dist/
 outputs/
 *.advisor.json
 *.plan.json
+*.sources.json
+*.workflow-report.json
 *.pdf
 .DS_Store
 
