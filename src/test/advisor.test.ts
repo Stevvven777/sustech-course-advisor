@@ -296,7 +296,7 @@ test("diagnostics contain only projected metadata and retain at most ten local r
     const environment = {
       installationReady: true, authenticationReady: false, readyForPersonalizedPlanning: false,
       project: { root: "/synthetic/home/student/project", packageVersion: "0.2.0", manifestOk: true, buildPresent: true, runtimeDependenciesAvailable: true },
-      sustech: { available: true, version: "0.10.0", missingCapabilities: ["projected degree progress"], missingConsequences: [], optionalFeatures: [{ name:"automatic-curriculum-acquisition", available:false }] },
+      sustech: { available: true, version: "0.10.0", missingCapabilities: ["projected degree progress"], missingConsequences: [], optionalFeatures: [{ name:"automatic-curriculum-acquisition", available:false, missingCapabilities:["curriculum sources","curriculum fetch"], missingConsequences:["curriculum.fetch"] }] },
       network: { proxyMode: "direct" },
       authentication: { profile: "student-secret", maskedSid: "12****34", credentialAvailable: false, backendAvailable: true, backend: "test", live: { status: "not-requested" } },
       errors: ["auth status: CREDENTIAL_STORE_ERROR"],
@@ -306,7 +306,11 @@ test("diagnostics contain only projected metadata and retain at most ten local r
       assertDiagnosticSafe(report);
       assert.doesNotMatch(JSON.stringify(report), /student-secret|12\*\*\*\*34|\/synthetic\/home/);
       await writeRollingDiagnostic(report, { directory, keep: 10 });
-      assert.deepEqual(report.sustech.unavailableOptionalFeatures, ["automatic-curriculum-acquisition"]);
+      assert.deepEqual(report.sustech.unavailableOptionalFeatures, [{
+        name:"automatic-curriculum-acquisition",
+        missingCapabilities:["curriculum sources","curriculum fetch"],
+        missingConsequences:["curriculum.fetch"],
+      }]);
     }
     const { readdir } = await import("node:fs/promises");
     assert.equal((await readdir(directory)).length, 10);

@@ -10,7 +10,13 @@ export interface DiagnosticReport {
   system: { platform: NodeJS.Platform; arch: string; node: string };
   readiness: { installation: boolean; authentication: boolean; personalizedPlanning: boolean };
   advisor: { packageVersion?: string; manifest: boolean; build: boolean; dependencies: boolean };
-  sustech: { available: boolean; version?: string; missingCapabilities: string[]; missingConsequences: string[]; unavailableOptionalFeatures: string[] };
+  sustech: {
+    available: boolean;
+    version?: string;
+    missingCapabilities: string[];
+    missingConsequences: string[];
+    unavailableOptionalFeatures: Array<{ name: string; missingCapabilities: string[]; missingConsequences: string[] }>;
+  };
   network: { proxyMode: string };
   credentialStore: { available: boolean; credentialAvailable: boolean; backend?: string; liveStatus?: string };
   failures: { count: number; codes: string[] };
@@ -51,7 +57,10 @@ export function createDiagnosticReport(environment: Record<string, unknown>, gen
       ...(typeof sustech.version === "string" ? { version: sustech.version } : {}),
       missingCapabilities: strings(sustech.missingCapabilities),
       missingConsequences: strings(sustech.missingConsequences),
-      unavailableOptionalFeatures: objects(sustech.optionalFeatures).filter((feature) => feature.available !== true).map((feature) => String(feature.name)).filter(Boolean),
+      unavailableOptionalFeatures: objects(sustech.optionalFeatures).filter((feature) => feature.available !== true).flatMap((feature) => {
+        const name = typeof feature.name === "string" ? feature.name : "";
+        return name ? [{ name, missingCapabilities: strings(feature.missingCapabilities), missingConsequences: strings(feature.missingConsequences) }] : [];
+      }),
     },
     network: { proxyMode: typeof network.proxyMode === "string" ? network.proxyMode : "unknown" },
     credentialStore: {
