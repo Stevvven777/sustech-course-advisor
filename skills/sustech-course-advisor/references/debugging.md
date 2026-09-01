@@ -6,7 +6,7 @@ Run `sustech-advisor diagnose --profile NAME` after the failing stage. Add `--li
 
 - operating system, architecture, Node and package versions;
 - installation and authentication readiness as separate states;
-- missing capability and consequence names;
+- missing required capability/consequence names and unavailable optional features with their missing contract names;
 - proxy mode, credential backend availability, and stable failure codes.
 
 It excludes SID, profile contents, grades, credentials, cookies, tokens, raw upstream payloads, queries, and absolute user paths. Do not add any of those fields to diagnostics.

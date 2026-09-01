@@ -16,11 +16,15 @@ export const REQUIRED_CAPABILITIES = [
   "tis degree progress",
   "nces search",
   "tis selection preview",
-  "curriculum sources",
-  "curriculum fetch",
 ] as const;
 
-export const REQUIRED_CONSEQUENCES = ["tis.enroll", "tis.cart.update", "curriculum.fetch"] as const;
+export const REQUIRED_CONSEQUENCES = ["tis.enroll", "tis.cart.update"] as const;
+
+export const OPTIONAL_FEATURES = [{
+  name: "automatic-curriculum-acquisition",
+  capabilities: ["curriculum sources", "curriculum fetch"],
+  consequences: ["curriculum.fetch"],
+}] as const;
 
 type Runner = (args: string[]) => Promise<unknown>;
 
@@ -63,6 +67,16 @@ export async function inspectEnvironment(options: EnvironmentOptions = {}): Prom
   const availableConsequences = new Set(array<Record<string, unknown>>(consequences.consequences).map((item) => String(item.operation)));
   const missingCapabilities = REQUIRED_CAPABILITIES.filter((name) => !availableCapabilities.has(name));
   const missingConsequences = REQUIRED_CONSEQUENCES.filter((name) => !availableConsequences.has(name));
+  const optionalFeatures = OPTIONAL_FEATURES.map((feature) => {
+    const missingFeatureCapabilities = feature.capabilities.filter((name) => !availableCapabilities.has(name));
+    const missingFeatureConsequences = feature.consequences.filter((name) => !availableConsequences.has(name));
+    return {
+      name: feature.name,
+      available: missingFeatureCapabilities.length === 0 && missingFeatureConsequences.length === 0,
+      missingCapabilities: missingFeatureCapabilities,
+      missingConsequences: missingFeatureConsequences,
+    };
+  });
   const credentialAvailable = auth.credentialAvailable === true;
   const backendAvailable = auth.backendAvailable === true;
   const cliContractReady = installationErrors.length === 0 && missingCapabilities.length === 0 && missingConsequences.length === 0;
@@ -95,6 +109,7 @@ export async function inspectEnvironment(options: EnvironmentOptions = {}): Prom
   if (!buildPresent) remediation.push(`Build the advisor project at ${projectRoot} with npm run build.`);
   if (!runtimeDependenciesAvailable) remediation.push(`Install the advisor runtime dependencies at ${projectRoot} before planning or exporting.`);
   if (installationErrors.length || missingCapabilities.length || missingConsequences.length) remediation.push("Install or select a compatible sustech CLI, then rerun doctor.");
+  if (optionalFeatures.some((feature) => !feature.available)) remediation.push("Automatic curriculum discovery is unavailable; use a confirmed official public PDF or a student-provided official PDF and retain its URL, digest, and page references.");
   if (!backendAvailable) remediation.push("Use an available supported credential source for sustech.");
   if (!credentialAvailable) remediation.push(`Run sustech auth login --profile ${profile} --service tis in an interactive terminal; never put the password in chat or command arguments.`);
   if (options.live && liveAuthentication.status === "failed") remediation.push("Resolve the reported TIS authentication or network issue; do not repeatedly retry an interactive CAS challenge.");
@@ -120,6 +135,7 @@ export async function inspectEnvironment(options: EnvironmentOptions = {}): Prom
       runtime: version.runtime,
       missingCapabilities,
       missingConsequences,
+      optionalFeatures,
     },
     network: {
       proxyMode,

@@ -56,7 +56,12 @@ New-Item -ItemType Directory -Force -Path $PackageRoot, $BinRoot | Out-Null
 $oldPath = $env:Path
 try {
   $env:Path = ((Split-Path $NodeBin) + [IO.Path]::PathSeparator + $env:Path)
+  & $NpmBin view "sustech-course-advisor@$AdvisorVersion" version --json | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw "sustech-course-advisor@$AdvisorVersion is not available from the selected npm registry." }
+  & $NpmBin view "sustech-cli@$SustechVersion" version --json | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw "sustech-cli@$SustechVersion is not available from the selected npm registry." }
   & $NpmBin install --prefix $PackageRoot --omit=dev --no-audit --no-fund "sustech-course-advisor@$AdvisorVersion" "sustech-cli@$SustechVersion"
+  if ($LASTEXITCODE -ne 0) { throw "Package installation failed." }
 } finally {
   $env:Path = $oldPath
 }
@@ -68,6 +73,16 @@ Set-Content -LiteralPath (Join-Path $BinRoot "sustech.cmd") -Encoding Ascii -Val
 
 & (Join-Path $BinRoot "sustech.cmd") version | Out-Null
 & (Join-Path $BinRoot "sustech-advisor.cmd") help | Out-Null
+$oldSustechBin = $env:SUSTECH_BIN
+try {
+  $env:SUSTECH_BIN = Join-Path $BinRoot "sustech.cmd"
+  $doctorText = (& (Join-Path $BinRoot "sustech-advisor.cmd") doctor 2>$null | Out-String)
+  $doctor = $doctorText | ConvertFrom-Json
+  if (-not $doctor.installationReady) { throw "Installed commands do not satisfy the advisor capability contract." }
+} finally {
+  if ($null -eq $oldSustechBin) { Remove-Item Env:SUSTECH_BIN -ErrorAction SilentlyContinue }
+  else { $env:SUSTECH_BIN = $oldSustechBin }
+}
 Write-Output "Installation verified. Use these executables without changing PATH:"
 Write-Output (Join-Path $BinRoot "sustech.cmd")
 Write-Output (Join-Path $BinRoot "sustech-advisor.cmd")
