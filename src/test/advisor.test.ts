@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { access } from "node:fs/promises";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
@@ -15,10 +15,13 @@ import { renderStrategyIcs } from "../exporters/ics.js";
 import { buildWorkbook } from "../exporters/xlsx.js";
 import { courseColorArgb, courseColorCss } from "../exporters/colors.js";
 import { inspectEnvironment, versionAtLeast } from "../core/environment.js";
-import { proxyModeFromEnv, runSustech, sustechChildEnv } from "../core/sustech.js";
+import { proxyModeFromEnv, runSustech, SustechCommandError, sustechChildEnv } from "../core/sustech.js";
 import { loadProfile, loadResult } from "../core/store.js";
 import { assertDiagnosticSafe, createDiagnosticReport, writeRollingDiagnostic } from "../core/diagnostics.js";
 import { normalizeCatalogRows } from "../core/catalog.js";
+import { assertSourceCacheSafe, createSourceCache, loadSourceCache, writeSourceCache } from "../core/cache.js";
+import { cacheFreshness } from "../core/execution.js";
+import { fetchLiveRecommendationSources } from "../core/planning.js";
 import type { AdvisorProfile, CourseSection, NcesCourseEvidence } from "../types.js";
 
 const execFile = promisify(execFileCallback);
@@ -313,6 +316,166 @@ test("macOS and Linux launch direct executables from a path containing spaces", 
     await chmod(executable, 0o700);
     const result = await runSustech(["tis", "courses", "search", "CS101"], { executable });
     assert.deepEqual(result, ["tis", "courses", "search", "CS101", "--json"]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("source caches are timestamped projections and report fresh versus stale state", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "advisor-source-cache-"));
+  const cachePath = join(directory, "sources.json");
+  try {
+    const cache = createSourceCache({
+      semester: "2026-2027-1", capturedAt: "2026-09-02T00:00:00.000Z",
+      sourceTimestamps: { tisCatalog: "2026-09-02T00:00:00.000Z", nces: "2026-09-02T00:00:01.000Z" },
+      catalog: [{ ...course("CS101", "A", ["张老师"], 1), rawPayload: { studentId: "secret" } } as CourseSection],
+      nces: [{ code:"CS101", semester:"2025秋", teacher:"张老师", grading:{pct:88,label:"Excellent"}, rating:4.5, reviewCount:12 }],
+      sourceStatuses: { tisCatalog: { ok: true }, nces: { ok: true } },
+    });
+    await writeSourceCache(cachePath, cache);
+    const saved = await readFile(cachePath, "utf8");
+    assert.doesNotMatch(saved, /rawPayload|studentId|secret/);
+    assert.equal((await loadSourceCache(cachePath)).catalog[0].code, "CS101");
+    assert.equal(cacheFreshness(cache.capturedAt, 60_000, Date.parse("2026-09-02T00:00:30.000Z")).status, "fresh");
+    assert.equal(cacheFreshness(cache.capturedAt, 60_000, Date.parse("2026-09-02T00:02:00.000Z")).status, "stale");
+    assert.throws(() => assertSourceCacheSafe({ token: "secret" }), /Unsafe key/);
+    assert.throws(() => assertSourceCacheSafe({ access_token: "secret" }), /Unsafe key/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("live source reads retry only bounded transient failures and retain source timestamps", async () => {
+  const calls: string[] = [];
+  const timeouts: number[] = [];
+  const sourceTimestamps: Record<string, string> = {};
+  let firstCatalogAttempt = true;
+  let nowMs = Date.parse("2026-09-02T00:00:00.000Z");
+  let retries = 0;
+  const sources = await fetchLiveRecommendationSources(fixtureProfile(), {
+    semester: "2026-2027-1", totalTimeoutMs: 2_000, maxRetries: 1, proxyMode: "direct",
+    now: () => nowMs,
+    onRetry: () => { retries += 1; },
+    onSource: (name, timestamp) => { sourceTimestamps[name] = timestamp; },
+    run: async (args, options) => {
+      calls.push(args.join(" "));
+      timeouts.push(options.timeoutMs);
+      nowMs += 100;
+      if (args[0] === "tis" && firstCatalogAttempt) {
+        firstCatalogAttempt = false;
+        throw new SustechCommandError("launch", "COMMAND_TIMEOUT");
+      }
+      if (args[0] === "tis") return { courses: [course(String(args[3]), "A", ["张老师"], 1)] };
+      return { items: [] };
+    },
+  });
+  assert.equal(retries, 1);
+  assert.equal(calls.filter((call) => call.startsWith("tis courses")).length, 3);
+  assert.ok(timeouts.every((timeout) => timeout > 0 && timeout <= 2_000));
+  assert.equal(sources.catalog.length, 2);
+  assert.equal(sources.sourceStatuses.tisCatalog.ok, true);
+  assert.deepEqual(Object.keys(sourceTimestamps), ["tisCatalog", "nces"]);
+});
+
+test("a timed SUSTech child is terminated with a stable timeout code", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "advisor-timeout-"));
+  const executable = join(directory, process.platform === "win32" ? "slow sustech.cmd" : "slow sustech");
+  try {
+    const source = process.platform === "win32"
+      ? `@echo off\r\n"${process.execPath}" -e "setTimeout(() =^> {}, 10000)" %*\r\n`
+      : `#!${process.execPath}\nsetTimeout(() => process.stdout.write(JSON.stringify({ok:true,data:{}})), 10_000);\n`;
+    await writeFile(executable, source, "utf8");
+    if (process.platform !== "win32") await chmod(executable, 0o700);
+    await assert.rejects(
+      runSustech(["tis", "courses", "search", "CS101"], { executable, timeoutMs: 30 }),
+      (error: unknown) => error instanceof SustechCommandError && error.code === "COMMAND_TIMEOUT",
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("cached and render-only workflows never start the campus CLI and emit complete telemetry", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "advisor-workflows-"));
+  const profilePath = join(directory, "profile.json");
+  const cachePath = join(directory, "cache.json");
+  const cachedPlan = join(directory, "cached-plan.json");
+  const renderedHtml = join(directory, "plan.html");
+  const renderedXlsx = join(directory, "plan.xlsx");
+  const renderedIcs = join(directory, "ics");
+  const reportFile = join(directory, "render-report.json");
+  const cli = fileURLToPath(new URL("../cli.js", import.meta.url));
+  const blockedExecutable = join(directory, "campus-cli-must-not-run");
+  try {
+    await writeFile(profilePath, JSON.stringify(fixtureProfile()), "utf8");
+    await writeSourceCache(cachePath, createSourceCache({
+      semester: "2026-2027-1", capturedAt: "2026-01-01T00:00:00.000Z",
+      sourceTimestamps: { tisCatalog: "2026-01-01T00:00:00.000Z", nces: "2026-01-01T00:00:01.000Z" },
+      catalog: [course("CS101", "A", ["张老师"], 1), course("MA101", "A", ["王老师"], 3)], nces: [],
+      sourceStatuses: { tisCatalog: { ok: true }, nces: { ok: true } },
+    }));
+    const collidingDestination = process.platform === "win32" ? profilePath.toUpperCase() : profilePath;
+    await assert.rejects(
+      execFile(process.execPath, [cli, "workflow", "--mode", "cached", "--path", profilePath, "--semester", "2026-2027-1", "--cache", cachePath, "--destination", collidingDestination, "--overwrite"], { env: { ...process.env, SUSTECH_BIN: blockedExecutable } }),
+      (error: unknown) => Boolean(error && typeof error === "object" && "stderr" in error && /must not overwrite profile input/i.test(String(error.stderr))),
+    );
+    assert.equal((await loadProfile(profilePath)).kind, "sustech-advisor-profile");
+    const cachedRun = await execFile(process.execPath, [cli, "workflow", "--mode", "cached", "--path", profilePath, "--semester", "2026-2027-1", "--cache", cachePath, "--destination", cachedPlan, "--week-one-monday", "2026-09-07"], { env: { ...process.env, SUSTECH_BIN: blockedExecutable } });
+    const cachedOutput = JSON.parse(cachedRun.stdout) as Record<string, unknown>;
+    const cachedReport = cachedOutput.report as Record<string, unknown>;
+    assert.equal(cachedReport.mode, "cached");
+    assert.equal(cachedReport.proxyMode, "unused");
+    assert.equal((cachedReport.cache as Record<string, unknown>).status, "stale");
+    assert.ok(((cachedReport.cache as Record<string, unknown>).ageMs as number) > 0);
+    assert.deepEqual(Object.keys(cachedReport.sourceTimestamps as Record<string, string>), ["tisCatalog", "nces"]);
+    assert.equal((cachedReport.stages as Array<Record<string, unknown>>).some((stage) => stage.name === "authoritative-read"), false);
+    assert.match(JSON.stringify(await loadResult(cachedPlan)), /Cached authoritative facts are stale/);
+
+    const renderRun = await execFile(process.execPath, [cli, "workflow", "--mode", "render-only", "--input", cachedPlan, "--html", renderedHtml, "--xlsx", renderedXlsx, "--ics-dir", renderedIcs, "--report", reportFile], { env: { ...process.env, SUSTECH_BIN: blockedExecutable } });
+    const renderOutput = JSON.parse(renderRun.stdout) as Record<string, unknown>;
+    const renderReport = renderOutput.report as Record<string, unknown>;
+    assert.equal(renderReport.mode, "render-only");
+    assert.equal(renderReport.proxyMode, "unused");
+    assert.equal((renderReport.cache as Record<string, unknown>).status, "not-used");
+    assert.ok((renderReport.totalWallClockMs as number) >= 0);
+    assert.deepEqual((renderReport.stages as Array<Record<string, unknown>>).map((stage) => stage.name), ["result-load", "audit", "render-html", "render-xlsx", "render-ics", "report-write"]);
+    const persistedReport = JSON.parse(await readFile(reportFile, "utf8")) as Record<string, unknown>;
+    assert.deepEqual(persistedReport, renderReport);
+    const measuredStages = (renderReport.stages as Array<Record<string, number>>).reduce((total, stage) => total + stage.durationMs, 0);
+    assert.ok((renderReport.totalWallClockMs as number) >= measuredStages);
+    await access(renderedHtml);
+    await access(renderedXlsx);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("live workflow writes a projected cache and reports its bounded authoritative stage", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "advisor-live-workflow-"));
+  const profilePath = join(directory, "profile.json");
+  const cachePath = join(directory, "semester.sources.json");
+  const planPath = join(directory, "plan.json");
+  const script = join(directory, process.platform === "win32" ? "fake-sustech.mjs" : "fake sustech.mjs");
+  const executable = process.platform === "win32" ? join(directory, "fake sustech.cmd") : script;
+  const cli = fileURLToPath(new URL("../cli.js", import.meta.url));
+  try {
+    await writeFile(profilePath, JSON.stringify(fixtureProfile()), "utf8");
+    await writeFile(script, `${process.platform === "win32" ? "" : `#!${process.execPath}\n`}const a=process.argv.slice(2);const code=String(a[3]||"CS101");const course={code,name:code,sectionName:"A",classGroup:"A",rwh:code+"-A",id:"id-"+code+"-A",college:"理学院",category:"",nature:"",campus:"南校区",credits:3,capacity:30,enrolled:20,teachers:["张老师"],schedule:[{weeks:[1,2],day:code==="CS101"?1:3,dayName:"周一",periodStart:1,periodEnd:2,room:"R1"}],rawPayload:{studentId:"must-not-survive"}};const data=a[0]==="tis"?{courses:[course]}:{items:[]};process.stdout.write(JSON.stringify({ok:true,data}));\n`, "utf8");
+    if (process.platform === "win32") await writeFile(executable, `@echo off\r\n"${process.execPath}" "%~dp0fake-sustech.mjs" %*\r\n`, "utf8");
+    else await chmod(executable, 0o700);
+    const run = await execFile(process.execPath, [cli, "workflow", "--mode", "live", "--path", profilePath, "--semester", "2026-2027-1", "--cache", cachePath, "--destination", planPath, "--timeout-ms", "5000", "--retries", "1"], { env: { ...process.env, SUSTECH_BIN: executable } });
+    const output = JSON.parse(run.stdout) as Record<string, unknown>;
+    const report = output.report as Record<string, unknown>;
+    assert.equal(report.mode, "live");
+    assert.equal((report.cache as Record<string, unknown>).status, "written");
+    assert.deepEqual(Object.keys(report.sourceTimestamps as Record<string, string>), ["tisCatalog", "nces"]);
+    const authoritative = (report.stages as Array<Record<string, unknown>>).find((stage) => stage.name === "authoritative-read");
+    assert.equal(authoritative?.retries, 0);
+    assert.ok((authoritative?.durationMs as number) >= 0);
+    const savedCache = await readFile(cachePath, "utf8");
+    assert.doesNotMatch(savedCache, /rawPayload|studentId|must-not-survive/);
+    assert.equal((await loadSourceCache(cachePath)).catalog.length, 2);
+    await access(planPath);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

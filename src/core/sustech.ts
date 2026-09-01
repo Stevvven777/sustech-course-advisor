@@ -17,7 +17,13 @@ export class SustechCommandError extends Error {
   }
 }
 
-export async function runSustech(args: string[], options: { executable?: string; proxyMode?: ProxyMode } = {}): Promise<unknown> {
+export interface SustechCommandOptions {
+  executable?: string;
+  proxyMode?: ProxyMode;
+  timeoutMs?: number;
+}
+
+export async function runSustech(args: string[], options: SustechCommandOptions = {}): Promise<unknown> {
   const executable = options.executable ?? process.env.SUSTECH_BIN ?? "sustech";
   const proxyMode = options.proxyMode ?? proxyModeFromEnv(process.env);
   const commandArgs = [...args, "--json"];
@@ -29,10 +35,11 @@ export async function runSustech(args: string[], options: { executable?: string;
     ({ stdout } = await exec(command, finalArgs, {
       env: sustechChildEnv(process.env, proxyMode),
       maxBuffer: 16 * 1024 * 1024,
+      ...(options.timeoutMs === undefined ? {} : { timeout: options.timeoutMs, killSignal: "SIGTERM" as const }),
       windowsVerbatimArguments: isWindowsScript,
     }));
   } catch (error) {
-    throw new SustechCommandError("launch", processErrorCode(error));
+    throw new SustechCommandError("launch", processErrorCode(error, options.timeoutMs !== undefined));
   }
   let envelope: { ok?: boolean; data?: unknown; error?: unknown };
   try { envelope = JSON.parse(stdout) as { ok?: boolean; data?: unknown; error?: unknown }; }
@@ -86,8 +93,10 @@ function upstreamErrorCode(value: unknown): string {
   return /^[A-Z][A-Z0-9_]{1,63}$/.test(code) ? code : "UPSTREAM_ERROR";
 }
 
-function processErrorCode(error: unknown): string {
+function processErrorCode(error: unknown, timeoutEnabled = false): string {
+  if (timeoutEnabled && error && typeof error === "object" && "killed" in error && error.killed === true) return "COMMAND_TIMEOUT";
   if (error && typeof error === "object" && "code" in error) {
+    if (error.code === null || error.code === undefined) return "PROCESS_ERROR";
     const code = String(error.code).toUpperCase().replace(/[^A-Z0-9_]/g, "_");
     if (code) return code.slice(0, 64);
   }
