@@ -1,0 +1,57 @@
+:root {
+  color: #18312f;
+  background: #f3f1eb;
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+button { font: inherit; }
+
+.page-shell { min-height: 100vh; padding: 28px; }
+.timetable-panel { max-width: 1460px; margin: 0 auto; overflow: hidden; border: 1px solid rgb(24 49 47 / 10%); border-radius: 24px; background: #fbfaf7; box-shadow: 0 24px 70px rgb(24 49 47 / 10%); }
+.panel-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 24px 28px 20px; border-bottom: 1px solid rgb(24 49 47 / 9%); }
+.eyebrow { margin: 0 0 5px; color: #8a5d3c; font-size: 12px; font-weight: 750; letter-spacing: .13em; text-transform: uppercase; }
+h1 { margin: 0; font-size: clamp(26px, 3vw, 38px); letter-spacing: -.035em; }
+.plan-summary { margin: 7px 0 0; color: #63736f; font-size: 14px; }
+.plan-switcher, .parity-switcher { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px; border-radius: 12px; background: #ece9e1; }
+.plan-switcher button, .parity-switcher button { border: 0; border-radius: 9px; background: transparent; color: #687773; cursor: pointer; padding: 9px 13px; font-size: 13px; font-weight: 700; }
+.plan-switcher button[aria-pressed="true"], .parity-switcher button[aria-pressed="true"] { background: #fff; color: #16685f; box-shadow: 0 2px 8px rgb(24 49 47 / 10%); }
+.scorecard { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; border-bottom: 1px solid rgb(24 49 47 / 9%); background: rgb(24 49 47 / 8%); }
+.metric { display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 8px; padding: 13px 18px; background: #fff; color: #6d7d79; font-size: 12px; }
+.metric-icon { display: grid; color: #16685f; }
+.metric-icon svg { width: 16px; height: 16px; }
+.metric strong { color: #18312f; font-size: 18px; }
+.controls-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 20px; }
+.principles { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.principles li { display: flex; gap: 7px; align-items: center; border-radius: 999px; background: #eadfce; color: #624c3c; padding: 7px 11px; font-size: 12px; }
+.principles span { color: #9a653f; font-family: ui-monospace, monospace; font-size: 10px; font-weight: 800; }
+.timetable-shell { margin: 0 18px 20px; overflow-x: auto; border: 1px solid rgb(24 49 47 / 9%); border-radius: 16px; background: #fff; padding: 10px; }
+#coursesTable { min-width: 780px; }
+.timetable-shell #courseWrapper { overflow: hidden; border: 0 !important; border-radius: 12px; background: #fff; }
+.timetable-shell .Courses-head { min-height: 44px; padding-left: 0; border-bottom: 1px solid rgb(24 49 47 / 10%); background: #f7f6f1; }
+.timetable-shell .Courses-head > div { padding: 13px 4px; color: #536a66; font-size: 12px; font-weight: 750; text-align: center; letter-spacing: .12em; }
+.timetable-shell .Courses-content ul { border-bottom: 1px solid rgb(24 49 47 / 7%); }
+.timetable-shell .Courses-content li { border-right: 1px solid rgb(24 49 47 / 7%); color: #fff; cursor: default; font-size: 11px; line-height: 1.25; text-align: center; white-space: pre-line; }
+.timetable-shell .course-hasContent { display: flex; align-items: center; justify-content: center; border: 3px solid #fff; border-radius: 10px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 16%); padding: 5px; font-weight: 680; line-height: 1.3; white-space: pre-line; }
+.timetable-shell .course-split-content { align-items: stretch; overflow: hidden; padding: 0; }
+.timetable-shell .course-split-block { display: flex; flex: 1; align-items: center; justify-content: center; padding: 4px; white-space: pre-line; }
+.timetable-shell .Courses-leftHand { background: #f7f6f1; color: #6d7d79; font-size: 10px; text-align: center; }
+.timetable-shell .Courses-leftHand > div:not(:first-child) { display: flex; align-items: center; justify-content: center; border-bottom: 1px solid rgb(24 49 47 / 7%); }
+.timetable-shell .Courses-leftHand span, .timetable-shell .Courses-leftHand p { margin: 0; }
+
+@media (max-width: 900px) {
+  .page-shell { padding: 12px; }
+  .panel-header, .controls-row { align-items: stretch; flex-direction: column; }
+  .scorecard { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .metric:last-child { grid-column: 1 / -1; }
+  .timetable-shell { margin: 0 10px 12px; }
+}
+
+@media (max-width: 520px) {
+  .panel-header { padding: 20px 18px 16px; }
+  .plan-switcher button { flex: 1; }
+  .scorecard { grid-template-columns: 1fr; }
+  .metric:last-child { grid-column: auto; }
+}

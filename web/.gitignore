@@ -1,0 +1,11 @@
+/node_modules/
+/.npm-cache/
+/.next/
+/.vinext/
+/dist/
+/.wrangler/
+/outputs/
+/.env*
+next-env.d.ts
+*.tsbuildinfo
+*.log
