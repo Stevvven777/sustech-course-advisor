@@ -1,0 +1,12 @@
+{
+  "kind": "sustech-advisor-diagnostic",
+  "schemaVersion": "1",
+  "generatedAt": "2030-01-01T00:00:00.000Z",
+  "system": { "platform": "darwin", "arch": "arm64", "node": "v20.18.0" },
+  "readiness": { "installation": true, "authentication": false, "personalizedPlanning": false },
+  "advisor": { "packageVersion": "0.2.0", "manifest": true, "build": true, "dependencies": true },
+  "sustech": { "available": true, "version": "0.10.0", "missingCapabilities": [], "missingConsequences": [] },
+  "network": { "proxyMode": "direct" },
+  "credentialStore": { "available": false, "credentialAvailable": false, "backend": "synthetic", "liveStatus": "not-requested" },
+  "failures": { "count": 1, "codes": ["CREDENTIAL_STORE_UNAVAILABLE"] }
+}

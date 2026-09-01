@@ -1,7 +1,21 @@
 node_modules/
+/node_modules
 dist/
 outputs/
 *.advisor.json
 *.plan.json
 *.pdf
 .DS_Store
+
+# Local development and personalized planning artifacts
+/AGENTS.md
+/docs/friction-log.md
+/docs/token-usage-log.md
+/docs/2026-fall-course-plans.md
+/docs/snapshots/
+/tmp/
+/timetable-web/
+/.npm-cache/
+/debug/local/
+/debug/support/
+**/.openai/hosting.json
