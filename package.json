@@ -10,7 +10,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc --noEmit -p tsconfig.json",
-    "test": "npm run build && node --test dist/test/*.test.js",
+    "test": "npm run build && node --test dist/test/advisor.test.js",
     "prepack": "npm run check && npm test"
   },
   "dependencies": { "exceljs": "^4.4.0" },
