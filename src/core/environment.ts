@@ -65,10 +65,13 @@ export async function inspectEnvironment(options: EnvironmentOptions = {}): Prom
   const missingConsequences = REQUIRED_CONSEQUENCES.filter((name) => !availableConsequences.has(name));
   const credentialAvailable = auth.credentialAvailable === true;
   const backendAvailable = auth.backendAvailable === true;
+  const cliContractReady = installationErrors.length === 0 && missingCapabilities.length === 0 && missingConsequences.length === 0;
+  const preflightReadyForLiveAuth = runtimeOk && manifestOk && buildPresent && runtimeDependenciesAvailable && cliContractReady;
 
   let liveAuthentication: Record<string, unknown> = { requested: options.live === true, status: "not-requested" };
   if (options.live) {
-    if (!credentialAvailable) liveAuthentication = { requested: true, status: "skipped", reason: "No credential source is available for this profile." };
+    if (!preflightReadyForLiveAuth) liveAuthentication = { requested: true, status: "skipped", reason: "Installation or CLI capability preflight is incomplete; authenticated checks were not started." };
+    else if (!credentialAvailable) liveAuthentication = { requested: true, status: "skipped", reason: "No credential source is available for this profile." };
     else {
       try {
         await runner(["auth", "check", "--service", "tis", "--profile", profile]);
@@ -83,8 +86,7 @@ export async function inspectEnvironment(options: EnvironmentOptions = {}): Prom
 
   const liveOk = !options.live || liveAuthentication.status === "passed";
   const errors = [...installationErrors, ...authenticationErrors];
-  const installationReady = runtimeOk && manifestOk && buildPresent && runtimeDependenciesAvailable && installationErrors.length === 0
-    && missingCapabilities.length === 0 && missingConsequences.length === 0;
+  const installationReady = runtimeOk && manifestOk && buildPresent && runtimeDependenciesAvailable && cliContractReady;
   const authenticationReady = authenticationErrors.length === 0 && credentialAvailable && backendAvailable && liveOk;
   const ok = installationReady && authenticationReady;
   const remediation: string[] = [];

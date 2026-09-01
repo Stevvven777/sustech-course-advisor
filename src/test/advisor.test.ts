@@ -199,7 +199,7 @@ test("schema v1 profiles and results migrate conservatively to schema v2", async
   }
 });
 
-test("environment preflight checks project, capabilities, consequences, and live TIS auth", async () => {
+test("an older CLI with the complete capability contract remains compatible", async () => {
   assert.equal(versionAtLeast("20.18.0", "20.18.0"), true);
   assert.equal(versionAtLeast("20.17.9", "20.18.0"), false);
   const commands = ["version","capabilities","consequences","auth status","auth check","tis courses search","tis courses available","tis degree progress","nces search","tis selection preview","curriculum sources","curriculum fetch"];
@@ -220,6 +220,31 @@ test("environment preflight checks project, capabilities, consequences, and live
   assert.equal(report.installationReady, true);
   assert.equal(report.authenticationReady, true);
   assert.equal((report.authentication as Record<string,unknown>).profile, "student");
+});
+
+test("a current-version CLI missing one capability is named and blocked before live authentication", async () => {
+  const completeCommands = ["version","capabilities","consequences","auth status","auth check","tis courses search","tis courses available","tis degree progress","nces search","tis selection preview","curriculum sources","curriculum fetch"];
+  const availableCommands = completeCommands.filter((name) => name !== "tis selection preview");
+  let liveAuthenticationCalls = 0;
+  const report = await inspectEnvironment({
+    live: true,
+    run: async (args) => {
+      const command = args.filter((arg) => !arg.startsWith("--") && arg !== "default" && arg !== "tis").join(" ");
+      if (command === "version") return { version:"0.10.0" };
+      if (command === "capabilities") return { capabilities:availableCommands.map((name)=>({command:name})) };
+      if (command === "consequences") return { consequences:["tis.enroll","tis.cart.update","curriculum.fetch"].map((operation)=>({operation})) };
+      if (command === "auth status") return { configured:true, credentialAvailable:true, backendAvailable:true, backend:"test" };
+      if (command === "auth check") { liveAuthenticationCalls += 1; return { authenticated:true }; }
+      throw new Error(`unexpected command: ${args.join(" ")}`);
+    },
+  });
+  assert.equal(report.installationReady, false);
+  assert.equal(report.readyForPersonalizedPlanning, false);
+  assert.deepEqual((report.sustech as Record<string,unknown>).missingCapabilities, ["tis selection preview"]);
+  assert.equal(liveAuthenticationCalls, 0);
+  const live = (report.authentication as Record<string,Record<string,unknown>>).live;
+  assert.equal(live.status, "skipped");
+  assert.match(String(live.reason), /capability preflight is incomplete/);
 });
 
 test("credential-store failures do not misreport a compatible installation as broken", async () => {
