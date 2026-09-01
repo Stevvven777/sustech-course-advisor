@@ -5,7 +5,6 @@ import { array, proxyModeFromEnv, record, runSustech } from "./sustech.js";
 
 const MINIMUM_NODE = "20.18.0";
 const DEFAULT_COMMAND_TIMEOUT_MS = 10_000;
-const MAX_COMMAND_TIMEOUT_MS = 60_000;
 
 export const REQUIRED_CAPABILITIES = [
   "version",
@@ -166,8 +165,8 @@ export async function inspectEnvironment(options: EnvironmentOptions = {}): Prom
 
 function environmentCommandTimeout(value: number | undefined): number {
   if (value === undefined) return DEFAULT_COMMAND_TIMEOUT_MS;
-  if (!Number.isSafeInteger(value) || value < 1 || value > MAX_COMMAND_TIMEOUT_MS) {
-    throw new Error(`commandTimeoutMs must be an integer from 1 to ${MAX_COMMAND_TIMEOUT_MS}.`);
+  if (!Number.isSafeInteger(value) || value < 1 || value > DEFAULT_COMMAND_TIMEOUT_MS) {
+    throw new Error(`commandTimeoutMs must be an integer from 1 to ${DEFAULT_COMMAND_TIMEOUT_MS}.`);
   }
   return value;
 }

@@ -311,6 +311,13 @@ test("doctor bounds a hanging credential-store status check without breaking ins
   assert.deepEqual(report.authenticationErrors, ["auth status: COMMAND_TIMEOUT"]);
 });
 
+test("doctor never accepts an environment probe timeout above the documented ten-second cap", async () => {
+  await assert.rejects(
+    inspectEnvironment({ commandTimeoutMs:10_001, run:async () => ({}) }),
+    /integer from 1 to 10000/,
+  );
+});
+
 test("live doctor bounds a hanging authenticated read and reports a stable failure code", async () => {
   const commands = ["version","capabilities","consequences","auth status","auth check","tis courses search","tis courses available","tis degree progress","nces search","tis selection preview"];
   const report = await inspectEnvironment({
