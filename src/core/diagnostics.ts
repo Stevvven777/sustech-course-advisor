@@ -10,7 +10,7 @@ export interface DiagnosticReport {
   system: { platform: NodeJS.Platform; arch: string; node: string };
   readiness: { installation: boolean; authentication: boolean; personalizedPlanning: boolean };
   advisor: { packageVersion?: string; manifest: boolean; build: boolean; dependencies: boolean };
-  sustech: { available: boolean; version?: string; missingCapabilities: string[]; missingConsequences: string[] };
+  sustech: { available: boolean; version?: string; missingCapabilities: string[]; missingConsequences: string[]; unavailableOptionalFeatures: string[] };
   network: { proxyMode: string };
   credentialStore: { available: boolean; credentialAvailable: boolean; backend?: string; liveStatus?: string };
   failures: { count: number; codes: string[] };
@@ -51,6 +51,7 @@ export function createDiagnosticReport(environment: Record<string, unknown>, gen
       ...(typeof sustech.version === "string" ? { version: sustech.version } : {}),
       missingCapabilities: strings(sustech.missingCapabilities),
       missingConsequences: strings(sustech.missingConsequences),
+      unavailableOptionalFeatures: objects(sustech.optionalFeatures).filter((feature) => feature.available !== true).map((feature) => String(feature.name)).filter(Boolean),
     },
     network: { proxyMode: typeof network.proxyMode === "string" ? network.proxyMode : "unknown" },
     credentialStore: {
@@ -102,6 +103,7 @@ export function diagnosticDataDirectory(): string {
 }
 
 function object(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+function objects(value: unknown): Array<Record<string, unknown>> { return Array.isArray(value) ? value.map(object) : []; }
 function strings(value: unknown): string[] { return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []; }
 function errorCode(value: string): string {
   const suffix = value.includes(":") ? value.slice(value.indexOf(":") + 1) : value;

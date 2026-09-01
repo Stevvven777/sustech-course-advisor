@@ -1,6 +1,6 @@
 # Official curriculum framework
 
-Use `sustech curriculum sources` to locate the cohort and major PDF, then `curriculum fetch` with an explicit destination. A student-provided newer official PDF takes precedence.
+Inspect `doctor.sustech.optionalFeatures` before acquiring the framework. When `automatic-curriculum-acquisition` is available, use `sustech curriculum sources` to locate the cohort and major PDF, then `curriculum fetch` with an explicit destination. When it is unavailable, locate the exact public PDF on an official university or department domain, or use an official PDF supplied by the student; preserve the authoritative URL when public, calculate its SHA-256, and ask the student to confirm title, cohort, major/track, and revision before extraction. A student-provided newer official PDF takes precedence. Never use `sustech.online`, NCES, a general catalog page, or course-name inference as the curriculum authority.
 
 For every structured course rule record the course code, requirement/module, required versus choice status, recommended semester when explicit, source page, and confidence. Record the document title, URL when public, and SHA-256.
 
