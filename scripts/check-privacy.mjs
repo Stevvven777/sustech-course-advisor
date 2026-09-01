@@ -9,7 +9,6 @@ const gitArgs = mode === "--staged"
   : ["ls-files", "-z"];
 const files = execFileSync("git", gitArgs, { encoding: "utf8" }).split("\0").filter(Boolean);
 const deniedPaths = [
-  /(^|\/)\.openai\/hosting\.json$/,
   /(^|\/)docs\/snapshots\//,
   /(^|\/)docs\/(?:friction-log|token-usage-log)\.md$/,
   /(^|\/)(?:student|personal).*(?:\.advisor|\.plan)?\.json$/i,
@@ -20,6 +19,16 @@ for (const file of files) {
   if (file === "scripts/check-privacy.mjs" || /(^|\/)debug\/fixtures\//.test(file)) continue;
   let content;
   try { content = readFileSync(file, "utf8"); } catch { continue; }
+  if (/(^|\/)\.openai\/hosting\.json$/.test(file)) {
+    try {
+      const hosting = JSON.parse(content);
+      if (file !== "web/.openai/hosting.json" || hosting.project_id !== null) {
+        findings.push(`${file}: hosting configuration must remain the unbound web project`);
+      }
+    } catch {
+      findings.push(`${file}: invalid hosting configuration`);
+    }
+  }
   for (const [label, pattern] of [
     ["absolute macOS user path", /\/Users\/[A-Za-z0-9._-]+\//],
     ["absolute Windows user path", /[A-Za-z]:\\Users\\[^\\\r\n]+\\/],
