@@ -9,10 +9,10 @@ export async function buildWorkbook(result: AdvisorResult): Promise<Buffer> {
   workbook.creator = "sustech-course-advisor";
   workbook.created = new Date(result.generatedAt);
   const summary = workbook.addWorksheet("三策略总览", { views: [{ state: "frozen", ySplit: 1 }] });
-  summary.addRow(["策略", "排入学分", "培养方案已确认学分", "归属未确认学分", "课程数", "培养要求覆盖", "警告"]);
-  result.strategies.forEach((plan) => summary.addRow([LABELS[plan.strategy], plan.totalCredits, plan.confirmedCredits, plan.unresolvedCredits, plan.sections.length, plan.requirementCoverage.join("；"), plan.warnings.join("；")]));
-  styleHeader(summary, 7);
-  summary.columns = [{width:16},{width:12},{width:18},{width:16},{width:12},{width:48},{width:48}];
+  summary.addRow(["策略", "排入学分", "主修确认学分", "辅修确认学分", "归属未确认学分", "课程数", "培养要求覆盖", "警告"]);
+  result.strategies.forEach((plan) => summary.addRow([LABELS[plan.strategy], plan.totalCredits, plan.mainProgramCredits, plan.minorProgramCredits, plan.unresolvedCredits, plan.sections.length, plan.requirementCoverage.join("；"), plan.warnings.join("；")]));
+  styleHeader(summary, 8);
+  summary.columns = [{width:16},{width:12},{width:16},{width:16},{width:16},{width:12},{width:48},{width:48}];
   result.strategies.forEach((plan) => addPlanSheet(workbook, plan));
   const sources = workbook.addWorksheet("来源与说明");
   sources.addRow(["字段", "内容"]); styleHeader(sources, 2);

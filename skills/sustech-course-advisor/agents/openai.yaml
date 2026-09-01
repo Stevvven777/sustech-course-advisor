@@ -2,6 +2,6 @@ interface:
   display_name: "SUSTech Course Advisor"
   short_description: "Guided, evidence-aware SUSTech course planning"
   brand_color: "#173F5F"
-  default_prompt: "Use $sustech-course-advisor to explain the planning flow, ask whether I have candidate courses or want recommendations, and request permission before personalized academic reads."
+  default_prompt: "使用 $sustech-course-advisor，默认用简体中文说明规划流程；先确认我是已有意向课程还是需要推荐，并在读取个人学业信息前征求许可。"
 policy:
   allow_implicit_invocation: true

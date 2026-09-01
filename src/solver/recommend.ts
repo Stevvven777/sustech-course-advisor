@@ -1,5 +1,5 @@
 import { attributeTeachingTeam } from "../nces/evidence.js";
-import type { AdvisorProfile, AdvisorResult, CourseSection, NcesCourseEvidence, RecommendedPlan, ScheduleSlot, Strategy, TeachingTeamEvidence } from "../types.js";
+import type { AdvisorProfile, AdvisorResult, CourseSection, CreditClassification, CreditTarget, NcesCourseEvidence, RecommendedPlan, ScheduleSlot, Strategy, TeachingTeamEvidence } from "../types.js";
 
 export function recommendCourses(input: {
   profile: AdvisorProfile;
@@ -34,7 +34,7 @@ export function recommendCourses(input: {
   const strategies: Strategy[] = ["high-load", "high-grading", "interest"];
   return {
     kind: "sustech-advisor-result",
-    schemaVersion: "1",
+    schemaVersion: "2",
     semester: input.semester,
     ...(input.round ? { round: input.round } : {}),
     ...(input.weekOneMonday ? { weekOneMonday: input.weekOneMonday } : {}),
@@ -70,7 +70,7 @@ function buildPlan(
     const choices = [...(byCode.get(code) ?? [])].sort((left, right) => sectionScore(right, strategy, profile, rules.get(code), evidence) - sectionScore(left, strategy, profile, rules.get(code), evidence));
     const choice = choices.find((section) =>
       selected.every((existing) => !coursesConflict(existing, section))
-      && totalCredits(selected) + section.credits <= profile.preferences.maxCredits,
+      && fitsCreditLimits(selected, section, rules, profile),
     );
     if (!choice) continue;
     selected.push(choice);
@@ -78,11 +78,18 @@ function buildPlan(
   }
   const missingMust = [...must].filter((code) => !selected.some((section) => upper(section.code) === code));
   const selectedCredits = totalCredits(selected);
-  const confirmedCredits = totalCredits(selected.filter((section) => rules.has(upper(section.code))));
-  const unresolvedCredits = Math.round((selectedCredits - confirmedCredits) * 100) / 100;
+  const creditClassification = Object.fromEntries(selected.map((section) => [section.rwh, classificationFor(section, rules)]));
+  const mainProgramCredits = creditsFor(selected, creditClassification, "main-program");
+  const minorProgramCredits = creditsFor(selected, creditClassification, "minor-program");
+  const unresolvedCredits = creditsFor(selected, creditClassification, "unresolved");
+  const confirmedCredits = round(mainProgramCredits + minorProgramCredits);
+  const mainTarget = profile.preferences.creditTargets.mainProgram;
+  const minorTarget = profile.preferences.creditTargets.minorProgram;
   const warnings = [
-    ...(selectedCredits < profile.preferences.minCredits ? [`Only ${selectedCredits} credits could be placed, below the requested minimum.`] : []),
-    ...(selectedCredits < profile.preferences.targetCredits ? [`Confirmed curriculum and explicitly requested candidates provide ${selectedCredits} credits, ${Math.round((profile.preferences.targetCredits - selectedCredits) * 100) / 100} below the target. Do not auto-fill with unresolved courses; ask the student how to handle the shortfall.`] : []),
+    ...(mainProgramCredits < mainTarget.min ? [`Only ${mainProgramCredits} main-program credits could be placed, below the requested minimum.`] : []),
+    ...(mainProgramCredits < mainTarget.target ? [`Confirmed main-program candidates provide ${mainProgramCredits} credits, ${round(mainTarget.target - mainProgramCredits)} below the target. Do not auto-fill with unresolved courses; ask the student how to handle the shortfall.`] : []),
+    ...(minorTarget && minorProgramCredits < minorTarget.min ? [`Only ${minorProgramCredits} minor-program credits could be placed, below the requested minimum.`] : []),
+    ...(minorTarget && minorProgramCredits < minorTarget.target ? [`Confirmed minor-program candidates provide ${minorProgramCredits} credits, ${round(minorTarget.target - minorProgramCredits)} below the target.`] : []),
     ...(unresolvedCredits > 0 ? [`${unresolvedCredits} credits come from explicitly requested courses whose curriculum membership is unresolved; do not count them as confirmed degree-credit coverage.`] : []),
     ...(missingMust.length ? [`Required-by-user courses not placed: ${missingMust.join(", ")}.`] : []),
   ];
@@ -91,7 +98,10 @@ function buildPlan(
     sections: selected,
     totalCredits: selectedCredits,
     confirmedCredits,
+    mainProgramCredits,
+    minorProgramCredits,
     unresolvedCredits,
+    creditClassification,
     requirementCoverage: selected.map((section) => rules.get(upper(section.code))).filter(Boolean).map((rule) => `${rule!.module}: ${rule!.code}`),
     reasons,
     evidence: Object.fromEntries(selected.map((section) => [section.rwh, evidence.get(section)!])),
@@ -139,7 +149,7 @@ function interestScore(section: CourseSection, interests: string[]): number {
 
 function explain(section: CourseSection, strategy: Strategy, profile: AdvisorProfile, rule: AdvisorProfile["curriculum"]["courses"][number] | undefined, evidence?: TeachingTeamEvidence): string[] {
   const reasons = [rule ? `Matches official curriculum module “${rule.module}” (PDF p.${rule.sourcePage}).` : "Explicitly requested by the student; curriculum membership remains unresolved and is excluded from confirmed requirement coverage."];
-  if (strategy === "high-load") reasons.push(`${section.credits} credits contribute to the high-load target of ${profile.preferences.targetCredits}.`);
+  if (strategy === "high-load") reasons.push(`${section.credits} credits contribute to the ${rule?.program === "minor-program" ? "minor" : "main"}-program load target.`);
   if (strategy === "high-grading") reasons.push(evidence?.gradingScore !== undefined ? `Exact-team NCES grading evidence: ${evidence.gradingScore}/100, confidence ${evidence.confidence}.` : "No attributable team-level NCES grading score; selected using remaining constraints.");
   if (strategy === "interest") reasons.push(`Interest matches: ${profile.preferences.interests.filter((interest) => interestScore(section, [interest]) > 0).join(", ") || "none explicit"}.`);
   return reasons;
@@ -166,8 +176,44 @@ function totalCredits(sections: CourseSection[]): number {
 function upper(value: string): string { return value.trim().toUpperCase(); }
 
 function validateCredits(profile: AdvisorProfile): void {
-  const { minCredits, targetCredits, maxCredits } = profile.preferences;
-  if (!(minCredits >= 0 && minCredits <= targetCredits && targetCredits <= maxCredits && maxCredits <= 25)) {
-    throw new Error("Main-program credit preferences must satisfy 0 <= min <= target <= max <= 25. Track minor-program credits separately.");
+  validateTarget(profile.preferences.creditTargets.mainProgram, "Main-program", 25);
+  const minor = profile.preferences.creditTargets.minorProgram;
+  if (minor) validateTarget(minor, "Minor-program");
+}
+
+function validateTarget(target: CreditTarget, label: string, ceiling?: number): void {
+  const values = [target.min, target.target, target.max];
+  const ordered = values.every(Number.isFinite) && target.min >= 0 && target.min <= target.target && target.target <= target.max;
+  if (!ordered || (ceiling !== undefined && target.max > ceiling)) {
+    throw new Error(`${label} credit preferences must satisfy 0 <= min <= target <= max${ceiling === undefined ? "." : ` <= ${ceiling}.`}`);
   }
 }
+
+function fitsCreditLimits(
+  selected: CourseSection[],
+  candidate: CourseSection,
+  rules: Map<string, AdvisorProfile["curriculum"]["courses"][number]>,
+  profile: AdvisorProfile,
+): boolean {
+  const classification = classificationFor(candidate, rules);
+  if (classification === "unresolved") return true;
+  const target = classification === "main-program"
+    ? profile.preferences.creditTargets.mainProgram
+    : profile.preferences.creditTargets.minorProgram;
+  if (!target) return false;
+  const current = selected.filter((section) => classificationFor(section, rules) === classification);
+  return round(totalCredits(current) + candidate.credits) <= target.max;
+}
+
+function classificationFor(
+  section: CourseSection,
+  rules: Map<string, AdvisorProfile["curriculum"]["courses"][number]>,
+): CreditClassification {
+  return rules.get(upper(section.code))?.program ?? "unresolved";
+}
+
+function creditsFor(sections: CourseSection[], classifications: Record<string, CreditClassification>, expected: CreditClassification): number {
+  return totalCredits(sections.filter((section) => classifications[section.rwh] === expected));
+}
+
+function round(value: number): number { return Math.round(value * 100) / 100; }

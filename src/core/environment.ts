@@ -46,16 +46,17 @@ export async function inspectEnvironment(options: EnvironmentOptions = {}): Prom
   let capabilities: Record<string, unknown> = {};
   let consequences: Record<string, unknown> = {};
   let auth: Record<string, unknown> = {};
-  const errors: string[] = [];
+  const installationErrors: string[] = [];
+  const authenticationErrors: string[] = [];
 
-  for (const [name, args, assign] of [
-    ["version", ["version"], (value: unknown) => { version = record(value); }],
-    ["capabilities", ["capabilities"], (value: unknown) => { capabilities = record(value); }],
-    ["consequences", ["consequences"], (value: unknown) => { consequences = record(value); }],
-    ["auth status", ["auth", "status", "--profile", profile], (value: unknown) => { auth = record(value); }],
+  for (const [name, args, assign, errorTarget] of [
+    ["version", ["version"], (value: unknown) => { version = record(value); }, installationErrors],
+    ["capabilities", ["capabilities"], (value: unknown) => { capabilities = record(value); }, installationErrors],
+    ["consequences", ["consequences"], (value: unknown) => { consequences = record(value); }, installationErrors],
+    ["auth status", ["auth", "status", "--profile", profile], (value: unknown) => { auth = record(value); }, authenticationErrors],
   ] as const) {
     try { assign(await runner([...args])); }
-    catch (error) { errors.push(`${name}: ${message(error)}`); }
+    catch (error) { errorTarget.push(`${name}: ${message(error)}`); }
   }
 
   const availableCapabilities = new Set(array<Record<string, unknown>>(capabilities.capabilities).map((item) => String(item.command)));
@@ -73,26 +74,33 @@ export async function inspectEnvironment(options: EnvironmentOptions = {}): Prom
         await runner(["auth", "check", "--service", "tis", "--profile", profile]);
         liveAuthentication = { requested: true, status: "passed" };
       } catch (error) {
-        liveAuthentication = { requested: true, status: "failed", error: message(error) };
+        const code = message(error);
+        liveAuthentication = { requested: true, status: "failed", error: code };
+        authenticationErrors.push(`auth check: ${code}`);
       }
     }
   }
 
   const liveOk = !options.live || liveAuthentication.status === "passed";
-  const ok = runtimeOk && manifestOk && buildPresent && runtimeDependenciesAvailable && errors.length === 0 && missingCapabilities.length === 0
-    && missingConsequences.length === 0 && credentialAvailable && backendAvailable && liveOk;
+  const errors = [...installationErrors, ...authenticationErrors];
+  const installationReady = runtimeOk && manifestOk && buildPresent && runtimeDependenciesAvailable && installationErrors.length === 0
+    && missingCapabilities.length === 0 && missingConsequences.length === 0;
+  const authenticationReady = authenticationErrors.length === 0 && credentialAvailable && backendAvailable && liveOk;
+  const ok = installationReady && authenticationReady;
   const remediation: string[] = [];
   if (!runtimeOk) remediation.push(`Use Node.js ${MINIMUM_NODE} or newer.`);
   if (!manifestOk) remediation.push(`Use a complete sustech-course-advisor checkout or installation; package.json is missing or does not identify the advisor.`);
   if (!buildPresent) remediation.push(`Build the advisor project at ${projectRoot} with npm run build.`);
   if (!runtimeDependenciesAvailable) remediation.push(`Install the advisor runtime dependencies at ${projectRoot} before planning or exporting.`);
-  if (errors.length || missingCapabilities.length || missingConsequences.length) remediation.push("Install or select a compatible sustech CLI, then rerun doctor.");
+  if (installationErrors.length || missingCapabilities.length || missingConsequences.length) remediation.push("Install or select a compatible sustech CLI, then rerun doctor.");
   if (!backendAvailable) remediation.push("Use an available supported credential source for sustech.");
-  if (!credentialAvailable) remediation.push(`Run sustech auth login --profile ${profile} in an interactive terminal; never put the password in chat or command arguments.`);
+  if (!credentialAvailable) remediation.push(`Run sustech auth login --profile ${profile} --service tis in an interactive terminal; never put the password in chat or command arguments.`);
   if (options.live && liveAuthentication.status === "failed") remediation.push("Resolve the reported TIS authentication or network issue; do not repeatedly retry an interactive CAS challenge.");
 
   return {
     ok,
+    installationReady,
+    authenticationReady,
     readyForPersonalizedPlanning: ok,
     project: {
       root: projectRoot,
@@ -128,6 +136,8 @@ export async function inspectEnvironment(options: EnvironmentOptions = {}): Prom
       live: liveAuthentication,
     },
     errors,
+    installationErrors,
+    authenticationErrors,
     remediation,
   };
 }
@@ -157,4 +167,7 @@ async function exists(path: string): Promise<boolean> {
   catch { return false; }
 }
 
-function message(error: unknown): string { return error instanceof Error ? error.message : String(error); }
+function message(error: unknown): string {
+  if (error && typeof error === "object" && "code" in error) return String(error.code).replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 64) || "UNKNOWN_ERROR";
+  return "UNKNOWN_ERROR";
+}

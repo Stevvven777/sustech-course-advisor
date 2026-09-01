@@ -1,4 +1,12 @@
 export type Strategy = "high-load" | "high-grading" | "interest";
+export type ProgramKind = "main-program" | "minor-program";
+export type CreditClassification = ProgramKind | "unresolved";
+
+export interface CreditTarget {
+  min: number;
+  target: number;
+  max: number;
+}
 
 export interface ScheduleSlot {
   weeks: number[];
@@ -37,11 +45,12 @@ export interface CurriculumCourseRule {
   completed?: boolean;
   sourcePage: number;
   confidence: "verified" | "needs-review";
+  program: ProgramKind;
 }
 
 export interface AdvisorProfile {
   kind: "sustech-advisor-profile";
-  schemaVersion: "1";
+  schemaVersion: "2";
   identity: { cohort: number; major: string; track?: string };
   curriculum: {
     title: string;
@@ -52,9 +61,10 @@ export interface AdvisorProfile {
     manualReview: string[];
   };
   preferences: {
-    minCredits: number;
-    targetCredits: number;
-    maxCredits: number;
+    creditTargets: {
+      mainProgram: CreditTarget;
+      minorProgram?: CreditTarget;
+    };
     blocked: Array<{ day: number; periodStart: number; periodEnd: number }>;
     mustInclude: string[];
     exclude: string[];
@@ -95,7 +105,10 @@ export interface RecommendedPlan {
   sections: CourseSection[];
   totalCredits: number;
   confirmedCredits: number;
+  mainProgramCredits: number;
+  minorProgramCredits: number;
   unresolvedCredits: number;
+  creditClassification: Record<string, CreditClassification>;
   requirementCoverage: string[];
   reasons: Record<string, string[]>;
   evidence: Record<string, TeachingTeamEvidence>;
@@ -104,7 +117,7 @@ export interface RecommendedPlan {
 
 export interface AdvisorResult {
   kind: "sustech-advisor-result";
-  schemaVersion: "1";
+  schemaVersion: "2";
   semester: string;
   round?: string;
   weekOneMonday?: string;

@@ -1,17 +1,21 @@
 {
   "name": "sustech-course-advisor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Guided, evidence-aware course planning for SUSTech students",
   "license": "PolyForm-Noncommercial-1.0.0",
   "type": "module",
   "bin": { "sustech-advisor": "dist/cli.js" },
-  "files": ["dist", "skills", "LICENSE", "README.md"],
+  "files": ["dist", "skills", "LICENSE", "README.md", "THIRD_PARTY_NOTICES.md"],
   "engines": { "node": ">=20.18.0" },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc --noEmit -p tsconfig.json",
     "test": "npm run build && node --test dist/test/advisor.test.js",
-    "prepack": "npm run check && npm test"
+    "privacy:staged": "node scripts/check-privacy.mjs --staged",
+    "privacy:tracked": "node scripts/check-privacy.mjs --tracked",
+    "license:check": "node scripts/check-licenses.mjs",
+    "validate:skill": "node scripts/validate-skill.mjs",
+    "prepack": "npm run check && npm test && npm run validate:skill && npm run privacy:tracked && npm run license:check"
   },
   "dependencies": { "exceljs": "^4.4.0" },
   "overrides": { "uuid": "^11.1.1" },

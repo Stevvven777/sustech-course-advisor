@@ -36,5 +36,24 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Validate Skill and privacy boundaries
+        run: npm run validate:skill && npm run privacy:tracked && npm run license:check
+
+      - name: Validate POSIX bootstrap syntax
+        if: runner.os != 'Windows'
+        run: sh -n skills/sustech-course-advisor/scripts/bootstrap.sh
+
+      - name: Validate PowerShell bootstrap syntax
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("skills/sustech-course-advisor/scripts/bootstrap.ps1", [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { throw ($errors | Out-String) }
+
+      - name: Check patch whitespace
+        run: git diff --check
+
       - name: Inspect package contents
         run: npm pack --dry-run

@@ -8,7 +8,7 @@
 [简体中文](#简体中文) · [English](#english)
 
 [![Status](https://img.shields.io/badge/status-early%20preview-F59E0B)](#项目状态)
-[![Version](https://img.shields.io/badge/version-0.1.0-173F5F)](./package.json)
+[![Version](https://img.shields.io/badge/version-0.2.0-173F5F)](./package.json)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A520.18.0-339933?logo=nodedotjs&logoColor=white)](./package.json)
 [![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial-5B5B5B)](./LICENSE)
 
@@ -90,6 +90,7 @@ SUSTech Course Advisor 是一个面向南方科技大学学生的本地选课规
 | 命令 | 作用 |
 | --- | --- |
 | `doctor` | 检查构建、Node.js、`sustech` 能力、后果记录和凭据状态 |
+| `diagnose` | 生成不含个人学业数据的本地滚动诊断及可选脱敏支持包 |
 | `init` | 交互式创建本地 advisor profile |
 | `show` | 查看已有 profile |
 | `refresh` | 刷新 TIS 培养方案进度时间戳 |
@@ -104,13 +105,14 @@ SUSTech Course Advisor 是一个面向南方科技大学学生的本地选课规
 - 密码保留在操作系统凭据存储中；本项目不读取、打印或保存密码、Cookie、Token 和原始 TIS 响应。
 - 若执行沙箱看不到 macOS 钥匙串，应在获准后让完整 CLI 命令在可访问钥匙串的环境运行，而不是导出密码。
 - profile 和输出文件默认以受限权限写入，并通过 `.gitignore` 排除常见个人数据文件。
+- 诊断仅保留平台、版本、能力、阶段与错误码，最多保存 10 份；支持包不会自动上传。
 - 不覆盖已有文件，除非明确传入 `--overwrite`。
 - 任何不完整来源、培养方案冲突和模糊规则都会保留为警告或人工复核项。
 - 项目只生成推荐和 preview；实际校园状态变更必须由 `sustech` 独立完成并再次确认。
 
 ## 项目状态
 
-当前版本为 **0.1.0 early preview**。核心求解、环境检查、HTML/XLSX/ICS 输出和只读选课预览已经具备测试覆盖，但真实学期中的培养方案差异、课程供给和上游服务变化仍需要更多验证。
+当前版本为 **0.2.0 early preview**。核心求解、环境检查、HTML/XLSX/ICS 输出和只读选课预览已经具备测试覆盖，但真实学期中的培养方案差异、课程供给和上游服务变化仍需要更多验证。
 
 欢迎通过 Issues 报告可复现的问题、培养方案边界或输出改进建议。如果这个项目对你有帮助，也欢迎点一个 Star。
 
@@ -234,7 +236,7 @@ Campus requests use direct access by default. After repeated live-query timeouts
 
 ## Project status
 
-The current release is **0.1.0 early preview**. Core solving, environment checks, HTML/XLSX/ICS exports, and read-only enrollment previews have automated coverage, but real-semester curriculum differences, course supply, and upstream changes still need broader validation.
+The current release is **0.2.0 early preview**. Core solving, environment checks, HTML/XLSX/ICS exports, and read-only enrollment previews have automated coverage, but real-semester curriculum differences, course supply, and upstream changes still need broader validation.
 
 Reproducible bug reports, curriculum edge cases, and output ideas are welcome through Issues. If the project helps you, consider giving it a Star.
 

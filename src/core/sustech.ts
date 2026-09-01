@@ -5,6 +5,18 @@ const exec = promisify(execFile);
 
 export type ProxyMode = "direct" | "inherit";
 
+export class SustechCommandError extends Error {
+  readonly code: string;
+  readonly stage: "launch" | "response";
+
+  constructor(stage: "launch" | "response", code: string) {
+    super(`sustech command failed during ${stage} (${code}).`);
+    this.name = "SustechCommandError";
+    this.stage = stage;
+    this.code = code;
+  }
+}
+
 export async function runSustech(args: string[], options: { executable?: string; proxyMode?: ProxyMode } = {}): Promise<unknown> {
   const executable = options.executable ?? process.env.SUSTECH_BIN ?? "sustech";
   const proxyMode = options.proxyMode ?? proxyModeFromEnv(process.env);
@@ -12,13 +24,20 @@ export async function runSustech(args: string[], options: { executable?: string;
   const isWindowsScript = process.platform === "win32" && /\.(?:cmd|bat)$/i.test(executable);
   const command = isWindowsScript ? (process.env.ComSpec || "cmd.exe") : executable;
   const finalArgs = isWindowsScript ? ["/d", "/s", "/c", windowsCommandLine(executable, commandArgs)] : commandArgs;
-  const { stdout } = await exec(command, finalArgs, {
-    env: sustechChildEnv(process.env, proxyMode),
-    maxBuffer: 16 * 1024 * 1024,
-    windowsVerbatimArguments: isWindowsScript,
-  });
-  const envelope = JSON.parse(stdout) as { ok?: boolean; data?: unknown; error?: unknown };
-  if (!envelope.ok) throw new Error(`sustech command failed: ${JSON.stringify(envelope.error)}`);
+  let stdout: string;
+  try {
+    ({ stdout } = await exec(command, finalArgs, {
+      env: sustechChildEnv(process.env, proxyMode),
+      maxBuffer: 16 * 1024 * 1024,
+      windowsVerbatimArguments: isWindowsScript,
+    }));
+  } catch (error) {
+    throw new SustechCommandError("launch", processErrorCode(error));
+  }
+  let envelope: { ok?: boolean; data?: unknown; error?: unknown };
+  try { envelope = JSON.parse(stdout) as { ok?: boolean; data?: unknown; error?: unknown }; }
+  catch { throw new SustechCommandError("response", "INVALID_JSON"); }
+  if (!envelope.ok) throw new SustechCommandError("response", upstreamErrorCode(envelope.error));
   return envelope.data;
 }
 
@@ -60,3 +79,17 @@ export function record(value: unknown): Record<string, unknown> {
 }
 
 export function array<T = unknown>(value: unknown): T[] { return Array.isArray(value) ? value as T[] : []; }
+
+function upstreamErrorCode(value: unknown): string {
+  const item = record(value);
+  const code = typeof item.code === "string" ? item.code : "UPSTREAM_ERROR";
+  return /^[A-Z][A-Z0-9_]{1,63}$/.test(code) ? code : "UPSTREAM_ERROR";
+}
+
+function processErrorCode(error: unknown): string {
+  if (error && typeof error === "object" && "code" in error) {
+    const code = String(error.code).toUpperCase().replace(/[^A-Z0-9_]/g, "_");
+    if (code) return code.slice(0, 64);
+  }
+  return "PROCESS_ERROR";
+}
