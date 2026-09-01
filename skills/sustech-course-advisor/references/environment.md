@@ -13,6 +13,8 @@ Detect the operating system and active shell before presenting or executing comm
 3. For personalized planning, run it again with `--live` to perform one authenticated TIS check. This is a read, not permission for an enrollment mutation.
 4. Inspect both the process exit status and the JSON `ok` field. Summarize failures and the provided `remediation`; do not proceed as if a partial check passed.
 
+Compatibility is capability-first, not a version-range guess. The supported bootstrap currently selects `sustech-cli@0.10.0`, but an older or newer build is ready only when it exposes every required command (`version`, `capabilities`, `consequences`, `auth status`, `auth check`, `tis courses search`, `tis courses available`, `tis degree progress`, `nces search`, `tis selection preview`, `curriculum sources`, and `curriculum fetch`) and every required consequence record (`tis.enroll`, `tis.cart.update`, and `curriculum.fetch`). `doctor` prints each missing name, marks installation and personalized planning not ready, and skips live authentication until this contract passes. Do not infer compatibility from the version string alone.
+
 Treat preflight remediation as work for the agent instead of handing a command list to the student.
 
 ## Agent-run installation
