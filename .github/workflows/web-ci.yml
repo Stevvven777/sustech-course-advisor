@@ -43,5 +43,14 @@ jobs:
       - name: Check types
         run: npm run typecheck
 
+      - name: Run data-contract tests
+        run: npm test
+
+      - name: Verify privacy boundary
+        run: npm run privacy:check
+
       - name: Build site
         run: npm run build
+
+      - name: Verify deployable license boundary
+        run: npm run license:check

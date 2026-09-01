@@ -5,15 +5,16 @@ import { AlertCircle, CalendarDays, CheckCircle2, Clock3 } from 'lucide-react';
 import Timetables from 'timetables';
 
 import { timetableData } from '@/lib/sample-data';
-import { buildColorRegistry, buildGrid, planMetrics, resolvePlan, validateTimetableData, type Parity } from '@/lib/timetable-data';
+import { buildColorRegistry, buildGrid, courseCodeFromCellLabel, planMetrics, resolvePlan, validateTimetableData, type Parity } from '@/lib/timetable-data';
 
 const dataErrors = validateTimetableData(timetableData);
 if (dataErrors.length) throw new Error(`Invalid timetable data: ${dataErrors.join(' ')}`);
+const initialPlan = requireInitialPlan();
 
 export function TimetableApp() {
-  const [planId, setPlanId] = useState(timetableData.plans[0].id);
+  const [planId, setPlanId] = useState(initialPlan.id);
   const [parity, setParity] = useState<Parity>('all');
-  const plan = timetableData.plans.find((item) => item.id === planId) ?? timetableData.plans[0];
+  const plan = timetableData.plans.find((item) => item.id === planId) ?? initialPlan;
   const sections = useMemo(() => resolvePlan(timetableData, plan), [plan]);
   const metrics = useMemo(() => planMetrics(sections), [sections]);
   const grid = useMemo(() => buildGrid(timetableData, sections, parity), [sections, parity]);
@@ -36,7 +37,7 @@ export function TimetableApp() {
     target.querySelectorAll<HTMLElement>('.course-hasContent').forEach((cell) => {
       const blocks = cell.innerText.split(/\n\/\n/).filter(Boolean);
       const decorate = (element: HTMLElement, text: string) => {
-        const code = text.match(/[A-Z]{2,4}\d{3}/)?.[0];
+        const code = courseCodeFromCellLabel(text);
         element.style.backgroundColor = code ? colors[code] : '#315b56';
         element.style.color = '#fff';
       };
@@ -100,4 +101,10 @@ export function TimetableApp() {
 
 function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) {
   return <div className="metric"><span className="metric-icon">{icon}</span><span>{label}</span><strong>{value}</strong></div>;
+}
+
+function requireInitialPlan() {
+  const plan = timetableData.plans.at(0);
+  if (!plan) throw new Error('Invalid timetable data: at least one plan is required.');
+  return plan;
 }

@@ -87,15 +87,15 @@ export function buildGrid(data: TimetableData, sections: ResolvedSection[], pari
 
 export function buildColorRegistry(data: TimetableData): Record<string, string> {
   const codes = [...new Set(data.courses.map((course) => normalize(course.code)))].sort();
-  const used: number[] = [];
-  return Object.fromEntries(codes.map((code) => {
-    let hue = hashHue(code);
-    for (let attempt = 0; attempt < 16 && used.some((value) => hueDistance(value, hue) < 22); attempt += 1) {
-      hue = (hue + 137.508) % 360;
-    }
-    used.push(hue);
-    return [code, `hsl(${hue.toFixed(1)} 58% 29%)`];
-  }));
+  if (codes.length > 16) throw new Error('The color registry supports at most 16 active course codes with guaranteed separation.');
+  if (!codes.length) return {};
+  const phase = hashHue(codes.join('\u0000'));
+  const step = 360 / codes.length;
+  return Object.fromEntries(codes.map((code, index) => [code, `hsl(${((phase + step * index) % 360).toFixed(1)} 58% 29%)`]));
+}
+
+export function courseCodeFromCellLabel(label: string): string {
+  return normalize(label.split('\n', 1)[0] ?? '');
 }
 
 export function validateTimetableData(data: TimetableData): string[] {
@@ -106,10 +106,19 @@ export function validateTimetableData(data: TimetableData): string[] {
   for (const duplicate of duplicates(courseCodes)) errors.push(`Duplicate course code: ${duplicate}.`);
   for (const duplicate of duplicates(sectionIds)) errors.push(`Duplicate section id: ${duplicate}.`);
   for (const duplicate of duplicates(planIds)) errors.push(`Duplicate plan id: ${duplicate}.`);
+  if (!Number.isInteger(data.periodCount) || data.periodCount < 1) errors.push('Period count must be a positive integer.');
+  if (!data.weekdays.length || data.weekdays.some((day) => !day.trim())) errors.push('Weekday labels must be non-empty.');
+  if (!data.plans.length) errors.push('At least one plan is required.');
+  if (new Set(courseCodes).size > 16) errors.push('At most 16 active course codes are supported so colors remain distinguishable.');
   for (const section of data.sections) {
     if (!courseCodes.includes(normalize(section.courseCode))) errors.push(`Section ${section.id} has no course.`);
     if (!section.teachingTeam.length || section.teachingTeam.some((name) => !name.trim())) errors.push(`Section ${section.id} has an incomplete teaching team.`);
     if (!section.meetings.length) errors.push(`Section ${section.id} has no meetings.`);
+    for (const meeting of section.meetings) {
+      const periods = [meeting.periodStart, meeting.periodEnd];
+      if (!Number.isInteger(meeting.day) || meeting.day < 0 || meeting.day >= data.weekdays.length) errors.push(`Section ${section.id} has an invalid meeting day.`);
+      if (periods.some((period) => !Number.isInteger(period) || period < 1 || period > data.periodCount) || meeting.periodStart > meeting.periodEnd) errors.push(`Section ${section.id} has an invalid meeting period.`);
+    }
   }
   for (const plan of data.plans) {
     for (const id of plan.sectionIds) if (!sectionIds.includes(id)) errors.push(`Plan ${plan.id} references missing section ${id}.`);
@@ -147,11 +156,6 @@ function hashHue(code: string): number {
     hash = Math.imul(hash, 16777619);
   }
   return (((hash >>> 0) % 997) * 137.508) % 360;
-}
-
-function hueDistance(left: number, right: number): number {
-  const distance = Math.abs(left - right);
-  return Math.min(distance, 360 - distance);
 }
 
 function duplicates(values: string[]): string[] {

@@ -9,6 +9,9 @@
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build",
+    "test": "node --experimental-strip-types --test lib/timetable-data.test.ts",
+    "license:check": "node scripts/check-license-boundary.mjs",
+    "privacy:check": "node scripts/check-privacy.mjs",
     "typecheck": "tsc --noEmit",
     "start": "wrangler dev --config dist/server/wrangler.json"
   },
