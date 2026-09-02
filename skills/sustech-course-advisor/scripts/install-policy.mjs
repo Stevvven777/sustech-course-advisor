@@ -99,7 +99,7 @@ if (operation === "prepare") {
     const sustechLauncher = join(binRoot, "sustech.cmd");
     writeFileSync(advisorLauncher, [
       "@echo off",
-      "setlocal",
+      "setlocal DisableDelayedExpansion",
       `if not defined SUSTECH_BIN set "SUSTECH_BIN=${batchValue(sustechLauncher)}"`,
       `"${batchValue(nodeBin)}" "${batchValue(advisorEntry)}" %*`,
       "exit /b %ERRORLEVEL%",
@@ -107,7 +107,7 @@ if (operation === "prepare") {
     ].join("\r\n"), "ascii");
     writeFileSync(sustechLauncher, [
       "@echo off",
-      "setlocal",
+      "setlocal DisableDelayedExpansion",
       `"${batchValue(nodeBin)}" "${batchValue(sustechEntry)}" %*`,
       "exit /b %ERRORLEVEL%",
       "",

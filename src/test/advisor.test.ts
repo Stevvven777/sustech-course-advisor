@@ -28,8 +28,8 @@ const execFile = promisify(execFileCallback);
 
 test("release launchers bind the audited sibling CLI and preserve explicit overrides", async () => {
   const directory = await mkdtemp(join(tmpdir(), "advisor-launchers-"));
-  const packageRoot = join(directory, "install root", "packages");
-  const binRoot = join(directory, "install root", "bin");
+  const packageRoot = join(directory, "install ! root", "packages");
+  const binRoot = join(directory, "install ! root", "bin");
   const staleRoot = join(directory, "stale path");
   const overrideRoot = join(directory, "override path");
   const policy = fileURLToPath(new URL("../../skills/sustech-course-advisor/scripts/install-policy.mjs", import.meta.url));
@@ -70,9 +70,8 @@ test("release launchers bind the audited sibling CLI and preserve explicit overr
     const advisorLauncher = join(binRoot, advisorName);
     const siblingLauncher = join(binRoot, commandName);
     const runLauncher = async (env: NodeJS.ProcessEnv): Promise<Record<string, string>> => {
-      const commandLine = `""${advisorLauncher.replaceAll('"', '""')}""`;
       const result = windows
-        ? await execFile(process.env.ComSpec || "cmd.exe", ["/d", "/s", "/c", commandLine], { encoding: "utf8", env, windowsVerbatimArguments: true })
+        ? await execFile(process.env.ComSpec || "cmd.exe", ["/d", "/v:on", "/s", "/c", advisorName], { cwd: binRoot, encoding: "utf8", env, windowsVerbatimArguments: true })
         : await execFile(advisorLauncher, [], { encoding: "utf8", env });
       return JSON.parse(result.stdout) as Record<string, string>;
     };
