@@ -5,6 +5,21 @@ import { dirname, join, resolve } from "node:path";
 
 const [operation, ...args] = process.argv.slice(2);
 
+function rejectLauncherControlCharacters(value, label) {
+  if (/[\0\r\n]/.test(value)) throw new Error(`${label} cannot contain control characters.`);
+  return value;
+}
+
+function posixQuote(value) {
+  return `'${rejectLauncherControlCharacters(value, "Launcher path").replaceAll("'", `'"'"'`)}'`;
+}
+
+function batchValue(value) {
+  const safe = rejectLauncherControlCharacters(value, "Launcher path");
+  if (safe.includes('"')) throw new Error("Windows launcher paths cannot contain double quotes.");
+  return safe.replaceAll("%", "%%");
+}
+
 if (operation === "prepare") {
   const [rootInput, sourceArchive, assetName, cliVersion] = args;
   if (!rootInput || !sourceArchive || !assetName || !cliVersion) throw new Error("prepare requires root, archive, asset, and CLI version.");
@@ -68,6 +83,52 @@ if (operation === "prepare") {
   for (let index = 0; index < minimum.length; index += 1) {
     if ((actual[index] ?? 0) > minimum[index]) break;
     if ((actual[index] ?? 0) < minimum[index]) throw new Error(`Installed uuid ${installedUuid} is below the stable 11.1.1 boundary.`);
+  }
+} else if (operation === "launchers") {
+  const [rootInput, binInput, nodeInput] = args;
+  if (!rootInput || !binInput || !nodeInput) throw new Error("launchers requires package root, bin root, and Node executable.");
+  const root = resolve(rootInput);
+  const binRoot = resolve(binInput);
+  const nodeBin = resolve(nodeInput);
+  const advisorEntry = join(root, "node_modules", "sustech-course-advisor", "dist", "cli.js");
+  const sustechEntry = join(root, "node_modules", "sustech-cli", "dist", "cli.js");
+  mkdirSync(binRoot, { recursive: true });
+
+  if (process.platform === "win32") {
+    const advisorLauncher = join(binRoot, "sustech-advisor.cmd");
+    const sustechLauncher = join(binRoot, "sustech.cmd");
+    writeFileSync(advisorLauncher, [
+      "@echo off",
+      "setlocal",
+      `if not defined SUSTECH_BIN set "SUSTECH_BIN=${batchValue(sustechLauncher)}"`,
+      `"${batchValue(nodeBin)}" "${batchValue(advisorEntry)}" %*`,
+      "exit /b %ERRORLEVEL%",
+      "",
+    ].join("\r\n"), "ascii");
+    writeFileSync(sustechLauncher, [
+      "@echo off",
+      "setlocal",
+      `"${batchValue(nodeBin)}" "${batchValue(sustechEntry)}" %*`,
+      "exit /b %ERRORLEVEL%",
+      "",
+    ].join("\r\n"), "ascii");
+  } else {
+    const advisorLauncher = join(binRoot, "sustech-advisor");
+    const sustechLauncher = join(binRoot, "sustech");
+    writeFileSync(advisorLauncher, [
+      "#!/bin/sh",
+      `SUSTECH_BIN=\${SUSTECH_BIN:-${posixQuote(sustechLauncher)}}`,
+      "export SUSTECH_BIN",
+      `exec ${posixQuote(nodeBin)} ${posixQuote(advisorEntry)} "$@"`,
+      "",
+    ].join("\n"), { mode: 0o700 });
+    writeFileSync(sustechLauncher, [
+      "#!/bin/sh",
+      `exec ${posixQuote(nodeBin)} ${posixQuote(sustechEntry)} "$@"`,
+      "",
+    ].join("\n"), { mode: 0o700 });
+    chmodSync(advisorLauncher, 0o700);
+    chmodSync(sustechLauncher, 0o700);
   }
 } else {
   throw new Error(`Unknown install-policy operation: ${operation ?? "(missing)"}.`);

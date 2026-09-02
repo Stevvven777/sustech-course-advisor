@@ -86,12 +86,10 @@ run_npm view "sustech-cli@$SUSTECH_VERSION" version --json --fetch-timeout=15000
   run_npm audit --omit=dev --audit-level=low --fetch-timeout=15000 --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 >/dev/null || { echo "Installed runtime dependency audit failed." >&2; exit 1; }
 )
 
-printf '%s\n' '#!/bin/sh' "exec \"$NODE_BIN\" \"$PACKAGE_ROOT/node_modules/sustech-course-advisor/dist/cli.js\" \"\$@\"" > "$BIN_ROOT/sustech-advisor"
-printf '%s\n' '#!/bin/sh' "exec \"$NODE_BIN\" \"$PACKAGE_ROOT/node_modules/sustech-cli/dist/cli.js\" \"\$@\"" > "$BIN_ROOT/sustech"
-chmod 700 "$BIN_ROOT/sustech-advisor" "$BIN_ROOT/sustech"
+"$NODE_BIN" "$SCRIPT_ROOT/install-policy.mjs" launchers "$PACKAGE_ROOT" "$BIN_ROOT" "$NODE_BIN" || { echo "Could not create isolated command launchers." >&2; exit 1; }
 
 "$BIN_ROOT/sustech" version >/dev/null
 "$BIN_ROOT/sustech-advisor" help >/dev/null
-DOCTOR_REPORT=$(SUSTECH_BIN="$BIN_ROOT/sustech" "$BIN_ROOT/sustech-advisor" doctor 2>/dev/null || true)
+DOCTOR_REPORT=$("$BIN_ROOT/sustech-advisor" doctor 2>/dev/null || true)
 printf '%s' "$DOCTOR_REPORT" | "$NODE_BIN" -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>{try{const r=JSON.parse(s);if(r.installationReady!==true)process.exit(1)}catch{process.exit(1)}})' || { echo "Installed commands do not satisfy the advisor capability contract." >&2; exit 1; }
 printf 'Installation verified. Use these executables without changing PATH:\n%s\n%s\n' "$BIN_ROOT/sustech" "$BIN_ROOT/sustech-advisor"

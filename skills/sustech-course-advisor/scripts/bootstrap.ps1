@@ -97,23 +97,14 @@ try {
   Remove-Item -LiteralPath $releaseTemporary -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-$advisorEntry = Join-Path $PackageRoot "node_modules\sustech-course-advisor\dist\cli.js"
-$sustechEntry = Join-Path $PackageRoot "node_modules\sustech-cli\dist\cli.js"
-Set-Content -LiteralPath (Join-Path $BinRoot "sustech-advisor.cmd") -Encoding Ascii -Value "@echo off`r`n`"$NodeBin`" `"$advisorEntry`" %*`r`n"
-Set-Content -LiteralPath (Join-Path $BinRoot "sustech.cmd") -Encoding Ascii -Value "@echo off`r`n`"$NodeBin`" `"$sustechEntry`" %*`r`n"
+& $NodeBin (Join-Path $PSScriptRoot "install-policy.mjs") launchers $PackageRoot $BinRoot $NodeBin
+if ($LASTEXITCODE -ne 0) { throw "Could not create isolated command launchers." }
 
 & (Join-Path $BinRoot "sustech.cmd") version | Out-Null
 & (Join-Path $BinRoot "sustech-advisor.cmd") help | Out-Null
-$oldSustechBin = $env:SUSTECH_BIN
-try {
-  $env:SUSTECH_BIN = Join-Path $BinRoot "sustech.cmd"
-  $doctorText = (& (Join-Path $BinRoot "sustech-advisor.cmd") doctor 2>$null | Out-String)
-  $doctor = $doctorText | ConvertFrom-Json
-  if (-not $doctor.installationReady) { throw "Installed commands do not satisfy the advisor capability contract." }
-} finally {
-  if ($null -eq $oldSustechBin) { Remove-Item Env:SUSTECH_BIN -ErrorAction SilentlyContinue }
-  else { $env:SUSTECH_BIN = $oldSustechBin }
-}
+$doctorText = (& (Join-Path $BinRoot "sustech-advisor.cmd") doctor 2>$null | Out-String)
+$doctor = $doctorText | ConvertFrom-Json
+if (-not $doctor.installationReady) { throw "Installed commands do not satisfy the advisor capability contract." }
 Write-Output "Installation verified. Use these executables without changing PATH:"
 Write-Output (Join-Path $BinRoot "sustech.cmd")
 Write-Output (Join-Path $BinRoot "sustech-advisor.cmd")
