@@ -43,7 +43,9 @@ if (operation === "prepare") {
   const root = resolve(rootInput);
   const installedAdvisor = JSON.parse(readFileSync(join(root, "node_modules", "sustech-course-advisor", "package.json"), "utf8")).version;
   const installedCli = JSON.parse(readFileSync(join(root, "node_modules", "sustech-cli", "package.json"), "utf8")).version;
-  const requireFromExceljs = createRequire(join(root, "node_modules", "exceljs", "package.json"));
+  const requireFromAdvisor = createRequire(join(root, "node_modules", "sustech-course-advisor", "package.json"));
+  const exceljsPackagePath = requireFromAdvisor.resolve("exceljs/package.json");
+  const requireFromExceljs = createRequire(exceljsPackagePath);
   const installedUuid = JSON.parse(readFileSync(requireFromExceljs.resolve("uuid/package.json"), "utf8")).version;
   if (installedAdvisor !== advisorVersion) throw new Error(`Expected advisor ${advisorVersion}, received ${installedAdvisor}.`);
   if (installedCli !== cliVersion) throw new Error(`Expected CLI ${cliVersion}, received ${installedCli}.`);
