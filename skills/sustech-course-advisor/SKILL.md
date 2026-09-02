@@ -40,4 +40,5 @@ Read [references/debugging.md](references/debugging.md) only when diagnosing a f
 - Recommendations and graduation conclusions are advisory. Preserve manual-review items.
 - Permission for personal academic reads does not authorize profile writes, exports, previews, or enrollment. Keep each authorization separate.
 - Never request, reveal, or store passwords, cookies, tokens, or raw upstream personal payloads.
+- Every `sustech` child process must have an explicit or default upper time bound. A timeout stops the current stage; do not convert it into an automatic retry, login, or campus mutation.
 - Treat live, cached, and render-only as separate contracts. Live reads have a bounded total budget and bounded retry count; cached planning must display data age; render-only must never launch a campus command.

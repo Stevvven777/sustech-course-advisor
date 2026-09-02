@@ -15,7 +15,7 @@ import { renderStrategyIcs } from "../exporters/ics.js";
 import { buildWorkbook } from "../exporters/xlsx.js";
 import { courseColorArgb, courseColorCss } from "../exporters/colors.js";
 import { inspectEnvironment, versionAtLeast } from "../core/environment.js";
-import { proxyModeFromEnv, runSustech, SustechCommandError, sustechChildEnv } from "../core/sustech.js";
+import { DEFAULT_SUSTECH_COMMAND_TIMEOUT_MS, proxyModeFromEnv, runSustech, SustechCommandError, sustechChildEnv } from "../core/sustech.js";
 import { loadProfile, loadResult } from "../core/store.js";
 import { assertDiagnosticSafe, createDiagnosticReport, writeRollingDiagnostic } from "../core/diagnostics.js";
 import { normalizeCatalogRows } from "../core/catalog.js";
@@ -26,10 +26,14 @@ import type { AdvisorProfile, CourseSection, NcesCourseEvidence } from "../types
 
 const execFile = promisify(execFileCallback);
 
+test("SUSTECH children have a ten-second default timeout", () => {
+  assert.equal(DEFAULT_SUSTECH_COMMAND_TIMEOUT_MS, 10_000);
+});
+
 test("release install policy creates a pinned consumer root and rejects unrelated manifests", async () => {
   const directory = await mkdtemp(join(tmpdir(), "advisor-install-policy-"));
   const packageRoot = join(directory, "packages");
-  const archiveName = "sustech-course-advisor-0.2.6.tgz";
+  const archiveName = "sustech-course-advisor-0.2.7.tgz";
   const archive = join(directory, archiveName);
   const policy = fileURLToPath(new URL("../../skills/sustech-course-advisor/scripts/install-policy.mjs", import.meta.url));
   try {
@@ -67,24 +71,24 @@ test("release install policy verifies exact packages and the safe uuid boundary"
     for (const name of ["sustech-course-advisor", "sustech-cli", "exceljs", "uuid"]) {
       await mkdir(join(packageRoot, "node_modules", name), { recursive: true });
     }
-    const advisorSpecifier = "file:../releases/sustech-course-advisor-0.2.6.tgz";
+    const advisorSpecifier = "file:../releases/sustech-course-advisor-0.2.7.tgz";
     await writeFile(join(packageRoot, "package.json"), JSON.stringify({ dependencies: { "sustech-course-advisor": advisorSpecifier } }), "utf8");
-    await writeFile(join(packageRoot, "package-lock.json"), JSON.stringify({ packages: { "node_modules/sustech-course-advisor": { version: "0.2.6", resolved: advisorSpecifier } } }), "utf8");
-    await writeFile(join(packageRoot, "node_modules", "sustech-course-advisor", "package.json"), JSON.stringify({ version: "0.2.6" }), "utf8");
+    await writeFile(join(packageRoot, "package-lock.json"), JSON.stringify({ packages: { "node_modules/sustech-course-advisor": { version: "0.2.7", resolved: advisorSpecifier } } }), "utf8");
+    await writeFile(join(packageRoot, "node_modules", "sustech-course-advisor", "package.json"), JSON.stringify({ version: "0.2.7" }), "utf8");
     await writeFile(join(packageRoot, "node_modules", "sustech-cli", "package.json"), JSON.stringify({ version: "0.10.0" }), "utf8");
     await writeFile(join(packageRoot, "node_modules", "exceljs", "package.json"), JSON.stringify({ version: "4.4.0" }), "utf8");
     const uuidManifest = join(packageRoot, "node_modules", "uuid", "package.json");
     await writeFile(uuidManifest, JSON.stringify({ version: "11.1.1" }), "utf8");
-    await execFile(process.execPath, [policy, "verify", packageRoot, "0.2.6", "0.10.0"]);
+    await execFile(process.execPath, [policy, "verify", packageRoot, "0.2.7", "0.10.0"]);
 
     await writeFile(uuidManifest, JSON.stringify({ version: "8.3.2" }), "utf8");
     await assert.rejects(
-      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.6", "0.10.0"]),
+      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.7", "0.10.0"]),
       /below the stable 11\.1\.1 boundary/,
     );
     await writeFile(uuidManifest, JSON.stringify({ version: "11.1.1-0" }), "utf8");
     await assert.rejects(
-      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.6", "0.10.0"]),
+      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.7", "0.10.0"]),
       /below the stable 11\.1\.1 boundary/,
     );
     await rm(join(packageRoot, "node_modules", "uuid"), { recursive: true, force: true });
@@ -94,17 +98,17 @@ test("release install policy verifies exact packages and the safe uuid boundary"
     await mkdir(nestedUuid, { recursive: true });
     await writeFile(join(nestedExceljs, "package.json"), JSON.stringify({ version: "4.4.0" }), "utf8");
     await writeFile(join(nestedUuid, "package.json"), JSON.stringify({ version: "11.1.1" }), "utf8");
-    await execFile(process.execPath, [policy, "verify", packageRoot, "0.2.6", "0.10.0"]);
+    await execFile(process.execPath, [policy, "verify", packageRoot, "0.2.7", "0.10.0"]);
 
     await writeFile(join(packageRoot, "package.json"), JSON.stringify({ dependencies: { "sustech-course-advisor": "file:../../source-checkout" } }), "utf8");
     await assert.rejects(
-      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.6", "0.10.0"]),
+      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.7", "0.10.0"]),
       /no longer points to the verified GitHub Release archive/,
     );
     await writeFile(join(packageRoot, "package.json"), JSON.stringify({ dependencies: { "sustech-course-advisor": advisorSpecifier } }), "utf8");
     await writeFile(join(packageRoot, "package-lock.json"), JSON.stringify({ packages: { "node_modules/sustech-course-advisor": { resolved: "../../source-checkout", link: true } } }), "utf8");
     await assert.rejects(
-      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.6", "0.10.0"]),
+      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.7", "0.10.0"]),
       /lock entry is not the verified GitHub Release archive/,
     );
   } finally {

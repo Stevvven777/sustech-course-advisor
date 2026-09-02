@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 const exec = promisify(execFile);
+export const DEFAULT_SUSTECH_COMMAND_TIMEOUT_MS = 10_000;
 
 export type ProxyMode = "direct" | "inherit";
 
@@ -26,6 +27,8 @@ export interface SustechCommandOptions {
 export async function runSustech(args: string[], options: SustechCommandOptions = {}): Promise<unknown> {
   const executable = options.executable ?? process.env.SUSTECH_BIN ?? "sustech";
   const proxyMode = options.proxyMode ?? proxyModeFromEnv(process.env);
+  const timeoutMs = options.timeoutMs ?? DEFAULT_SUSTECH_COMMAND_TIMEOUT_MS;
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1) throw new Error("SUSTECH command timeout must be a positive integer.");
   const commandArgs = [...args, "--json"];
   const isWindowsScript = process.platform === "win32" && /\.(?:cmd|bat)$/i.test(executable);
   const command = isWindowsScript ? (process.env.ComSpec || "cmd.exe") : executable;
@@ -35,11 +38,12 @@ export async function runSustech(args: string[], options: SustechCommandOptions 
     ({ stdout } = await exec(command, finalArgs, {
       env: sustechChildEnv(process.env, proxyMode),
       maxBuffer: 16 * 1024 * 1024,
-      ...(options.timeoutMs === undefined ? {} : { timeout: options.timeoutMs, killSignal: "SIGTERM" as const }),
+      timeout: timeoutMs,
+      killSignal: "SIGTERM" as const,
       windowsVerbatimArguments: isWindowsScript,
     }));
   } catch (error) {
-    throw new SustechCommandError("launch", processErrorCode(error, options.timeoutMs !== undefined));
+    throw new SustechCommandError("launch", processErrorCode(error, true));
   }
   let envelope: { ok?: boolean; data?: unknown; error?: unknown };
   try { envelope = JSON.parse(stdout) as { ok?: boolean; data?: unknown; error?: unknown }; }

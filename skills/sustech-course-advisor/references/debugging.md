@@ -9,7 +9,7 @@ Run `sustech-advisor diagnose --profile NAME` after the failing stage. Add `--li
 - missing required capability/consequence names and unavailable optional features with their missing contract names;
 - proxy mode, credential backend availability, and stable failure codes.
 
-Every `sustech` subprocess started by `doctor` or `diagnose` has a ten-second upper bound. A credential backend or authenticated check that does not return is recorded as `COMMAND_TIMEOUT`; the diagnostic must still finish without repeatedly invoking the credential store. Treat that code as a local credential-backend problem first, not as evidence that the advisor installation or proxy is broken.
+Every `sustech` subprocess has a ten-second default upper bound; bounded live workflows may supply a per-stage value within their documented total budget. A credential backend, authenticated check, init inference, refresh, or preview that does not return is recorded as `COMMAND_TIMEOUT`. Diagnostics and guided init must still finish without repeatedly invoking the credential store, while refresh and preview stop without retrying. Treat the stage and a bounded direct-versus-inherited-proxy comparison as evidence before classifying the timeout; the code alone does not prove that credentials expired or that the proxy is broken.
 
 Keep the timeout layers distinct. `COMMAND_TIMEOUT` means the whole installed
 `sustech` command exceeded the advisor's boundary. An upstream version that
