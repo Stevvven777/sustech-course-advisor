@@ -47,3 +47,24 @@ jobs:
           SUSTECH_ADVISOR_VERSION: ${{ inputs.version }}
           SUSTECH_ADVISOR_INSTALL_ROOT: ${{ runner.temp }}/sustech-course-advisor-release-smoke
         run: '& ./skills/sustech-course-advisor/scripts/bootstrap.ps1'
+
+      - name: Diagnose a failed Windows consumer install
+        if: failure() && runner.os == 'Windows'
+        shell: pwsh
+        env:
+          SUSTECH_ADVISOR_INSTALL_ROOT: ${{ runner.temp }}/sustech-course-advisor-release-smoke
+        run: |
+          $packageRoot = Join-Path $env:SUSTECH_ADVISOR_INSTALL_ROOT "packages"
+          node --version
+          npm.cmd --version
+          if (Test-Path (Join-Path $packageRoot "package.json")) {
+            Write-Output "Consumer manifest:"
+            Get-Content (Join-Path $packageRoot "package.json")
+          }
+          if (Test-Path (Join-Path $packageRoot "package-lock.json")) {
+            Write-Output "Consumer lockfile:"
+            Get-Content (Join-Path $packageRoot "package-lock.json")
+          }
+          Write-Output "Installed dependency tree:"
+          npm.cmd ls --prefix $packageRoot --all --json
+          exit 0
