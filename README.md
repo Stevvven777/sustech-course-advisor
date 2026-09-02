@@ -38,8 +38,8 @@ Bring curriculum requirements, personal progress, live course supply, and commun
 
 | 你的情况 | 选择 | 你需要负责 |
 | --- | --- | --- |
-| 不会或不想配置环境 | **A · Agent 全程处理** | 发出安装请求，批准明确的操作 |
-| 掌握基本 Git 命令 | **B · 固定版本检出** | 克隆指定版本，其余安装和检查交给 Agent |
+| 不会或不想配置环境 | **A · Agent 全程处理（推荐）** | 发出安装请求，审核并批准明确的操作 |
+| 掌握基本 Git 命令 | **B · 克隆仓库并固定发布版本** | 克隆仓库，其余版本固定、安装和检查交给 Agent |
 | 完全理解项目原理 | **C · 从源码构建** | 自己控制依赖、构建、测试、运行方式与调试 |
 
 ### A · 不会配置环境：让 Agent 全程处理（推荐）
@@ -61,7 +61,7 @@ cd sustech-course-advisor
 
 然后在能够访问该目录的 Agent 中发送：
 
-> 请先对照 GitHub Releases，把当前仓库固定到最新正式发布的 tag；然后安装完整的 `skills/sustech-course-advisor/`，不要只复制 `SKILL.md`。请根据我的操作系统运行对应的 bootstrap，安装并校验与该 Release 一致的运行时及依赖，最后运行 `doctor`；需要联网或写入前先说明影响并征得确认。
+> 请先对照 GitHub Releases，把当前仓库固定到最新正式发布的 tag；然后安装完整的 `skills/sustech-course-advisor/`，不要只复制 `SKILL.md`。请根据我的操作系统运行对应的 bootstrap，安装并校验与该 Release 一致的运行时及依赖，运行 `doctor` 检查安装；需要个性化数据时，在我通过安全交互完成登录后再运行 `doctor --live`。需要联网或写入前先说明影响并征得确认。
 
 这条路径只要求你能够克隆并查看 Git 状态；Release tag 的确认与检出、依赖安装、跨平台 bootstrap 和就绪检查仍由 Agent 完成。不要在仓库根目录运行 `npm install`。
 
@@ -77,18 +77,26 @@ npm run prepack
 node dist/cli.js help
 ```
 
-在运行这些命令前，自行检出准备审查的 Release tag、分支或 commit。`npm ci` 在这里仅用于从锁文件安装源码开发依赖；Advisor 仍不发布到 npm。继续前建议阅读 [`package.json`](./package.json)、[Skill 主流程](./skills/sustech-course-advisor/SKILL.md)、[环境边界](./skills/sustech-course-advisor/references/environment.md)、[工具链](./skills/sustech-course-advisor/references/toolkit.md)和 [`debug/` 维护记录](./debug/README.md)。选择非发布 tag 时，应自行承担版本、依赖和测试结果的审查责任。
+克隆后、运行 `npm ci` 前，自行检出准备审查的 Release tag、分支或 commit。`npm ci` 在这里仅用于从锁文件安装源码开发依赖；Advisor 仍不发布到 npm。继续前建议阅读 [`package.json`](./package.json)、[Skill 主流程](./skills/sustech-course-advisor/SKILL.md)、[环境边界](./skills/sustech-course-advisor/references/environment.md)、[工具链](./skills/sustech-course-advisor/references/toolkit.md)和 [`debug/` 维护记录](./debug/README.md)。选择非发布 tag 时，应自行承担版本、依赖和测试结果的审查责任。
 
-### 安装完成的共同标准
+### 分路径完成标准
 
-无论选择哪条路径，都应在继续读取个人学业信息前确认：
+**A / B · Release 安装路径**
 
 - 安装了完整 Skill 目录，包括 `SKILL.md`、`references/` 和 `scripts/`；
 - Advisor 归档与同一 GitHub Release 提供的 SHA-256 一致；
 - Advisor 运行时版本与所选 Release tag 一致，默认绑定同一受控安装目录中由发布策略固定的上游 CLI，且没有全局安装；
-- `doctor` 分别报告安装、上游 CLI 能力、凭据和实时 TIS 可达性；TIS/CAS 超时不等于凭据失效。
+- `doctor` 确认安装、上游 CLI 能力和本地凭据状态；需要个性化数据时，登录后再由 `doctor --live` 检查实时 TIS 可达性。
 
-Skill 确认可以加载后，新建对话并说：
+**C · 源码构建路径**
+
+- 记录实际检出的 tag、分支或 commit，并确认 `npm ci` 与 `npm run prepack` 通过；
+- 确认 `node dist/cli.js help` 可以启动；需要个性化数据时，依次运行源码入口的 `doctor`，并在安全登录后运行 `doctor --live`；
+- 除非正在测试 Release bootstrap，否则源码构建不要求下载或校验 Release 归档。
+
+所有路径都必须把安装状态、凭据状态和上游网络状态分开；TIS/CAS 超时不等于凭据失效，也不应触发自动重复登录。
+
+A / B 路径确认 Skill 可以加载后，新建对话并说；C 路径如果也导入了仓库内的 Skill，同样从这里开始：
 
 > 使用 `$sustech-course-advisor`，按照我的学年和专业推荐 2026 秋季课程。
 
@@ -219,7 +227,7 @@ npm run prepack
 | Your experience | Choose | What you handle |
 | --- | --- | --- |
 | You cannot or do not want to configure the environment | **A · Agent-managed setup (recommended)** | Send one request, review and approve clearly described operations |
-| You know basic Git commands | **B · Pinned source checkout** | Clone the tagged release, then delegate setup and checks to the Agent |
+| You know basic Git commands | **B · Clone and pin a release** | Clone the repository, then delegate release pinning, setup, and checks to the Agent |
 | You fully understand the project | **C · Build from source** | Own dependency, build, test, execution, and debugging decisions |
 
 ### A · No environment experience: let the Agent handle everything (recommended)
@@ -241,7 +249,7 @@ cd sustech-course-advisor
 
 Then send this request to an Agent that can access the checkout:
 
-> First compare this checkout with GitHub Releases and pin it to the latest formally published tag. Then install the complete `skills/sustech-course-advisor/` directory; do not copy only `SKILL.md`. Run the bootstrap matching my operating system, install and verify the runtime and dependencies for that Release, then run `doctor`. Before network access or writes, explain the impact and obtain my approval.
+> First compare this checkout with GitHub Releases and pin it to the latest formally published tag. Then install the complete `skills/sustech-course-advisor/` directory; do not copy only `SKILL.md`. Run the bootstrap matching my operating system, install and verify the runtime and dependencies for that Release, then run `doctor` to check the installation. If personalized data is needed, run `doctor --live` only after I complete login through the secure interactive prompt. Before network access or writes, explain the impact and obtain my approval.
 
 This path requires only enough Git knowledge to clone the repository and inspect its status. The Agent still identifies and checks out the Release tag, installs dependencies, runs the cross-platform bootstrap, and performs readiness checks. Do not run `npm install` at the repository root.
 
@@ -257,18 +265,26 @@ npm run prepack
 node dist/cli.js help
 ```
 
-Before running these commands, check out the Release tag, branch, or commit you intend to review. Here, `npm ci` installs source-development dependencies from the lockfile; the Advisor is still not published to npm. Before continuing, review [`package.json`](./package.json), the [Skill workflow](./skills/sustech-course-advisor/SKILL.md), [environment boundaries](./skills/sustech-course-advisor/references/environment.md), the [toolkit](./skills/sustech-course-advisor/references/toolkit.md), and the [`debug/` maintenance records](./debug/README.md). If you select anything other than a published tag, you own review of versions, dependencies, and test results.
+After cloning and before running `npm ci`, check out the Release tag, branch, or commit you intend to review. Here, `npm ci` installs source-development dependencies from the lockfile; the Advisor is still not published to npm. Before continuing, review [`package.json`](./package.json), the [Skill workflow](./skills/sustech-course-advisor/SKILL.md), [environment boundaries](./skills/sustech-course-advisor/references/environment.md), the [toolkit](./skills/sustech-course-advisor/references/toolkit.md), and the [`debug/` maintenance records](./debug/README.md). If you select anything other than a published tag, you own review of versions, dependencies, and test results.
 
-### Shared completion criteria
+### Completion criteria by path
 
-Whichever path you choose, confirm all of the following before any personal academic data is read:
+**A / B · Release installation paths**
 
 - the complete Skill directory is installed, including `SKILL.md`, `references/`, and `scripts/`;
 - the Advisor archive matches the SHA-256 published with the same GitHub Release;
 - the Advisor runtime version matches the selected Release tag, binds the upstream CLI pinned by that Release policy from the same controlled installation by default, and performs no global install;
-- `doctor` reports installation, upstream CLI capabilities, credentials, and live TIS reachability separately; a TIS/CAS timeout is not equivalent to expired credentials.
+- `doctor` confirms installation, upstream CLI capabilities, and local credential state; when personalized data is needed, `doctor --live` checks live TIS reachability after login.
 
-After the Skill can be loaded, start a new conversation and say:
+**C · Source-build path**
+
+- record the tag, branch, or commit actually checked out, and confirm that `npm ci` and `npm run prepack` pass;
+- confirm that `node dist/cli.js help` starts; when personalized data is needed, run `doctor` through the source entry point, then run `doctor --live` after secure login;
+- a source build does not need to download or verify a Release archive unless it is specifically testing the Release bootstrap.
+
+Every path must keep installation, credential, and upstream network states separate. A TIS/CAS timeout is not equivalent to expired credentials and must not trigger an automatic login loop.
+
+After the Skill can be loaded on path A or B, start a new conversation and say. Path C can start the same way if the bundled Skill was also imported:
 
 > Use `$sustech-course-advisor` to recommend courses for Fall 2026 based on my year and major.
 
