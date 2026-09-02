@@ -30,8 +30,10 @@ for (const [name, script] of [["POSIX", posixBootstrap], ["PowerShell", powershe
 }
 if (!posixBootstrap.includes("shasum") || !posixBootstrap.includes("sha256sum")) throw new Error("POSIX bootstrap must support a SHA-256 verifier.");
 if (!posixBootstrap.includes('cd "$PACKAGE_ROOT"') || /(?:install|audit) --prefix "\$PACKAGE_ROOT"/.test(posixBootstrap)) throw new Error("POSIX npm install and audit must run from the isolated consumer root without --prefix.");
+if (!posixBootstrap.includes('npm_config_cache="$NPM_CACHE_ROOT"')) throw new Error("POSIX bootstrap must isolate npm cache writes under the installation root.");
 if (!powershellBootstrap.includes("Get-FileHash")) throw new Error("PowerShell bootstrap must verify the advisor archive hash.");
 if (!powershellBootstrap.includes("Push-Location -LiteralPath $PackageRoot") || /(?:install|audit) --prefix \$PackageRoot/.test(powershellBootstrap)) throw new Error("PowerShell npm install and audit must run from the isolated consumer root without --prefix.");
+if (!powershellBootstrap.includes("--cache=$NpmCacheRoot")) throw new Error("PowerShell bootstrap must isolate npm cache writes under the installation root.");
 if (!installPolicy.includes('file:../releases/${assetName}') || !installPolicy.includes('uuid: "^11.1.1"') || !installPolicy.includes("expectedAdvisorSpecifier") || !installPolicy.includes("lockedAdvisor.link === true")) throw new Error("Installation policy does not retain and verify the Release archive or enforce the reviewed uuid boundary.");
 if (!powershellBootstrap.trimEnd().endsWith("exit 0")) throw new Error("PowerShell bootstrap must clear a non-ready doctor exit after validating installation readiness.");
 if (!releaseWorkflow.includes('tags: ["v*"]') || !releaseWorkflow.includes("gh release create")) throw new Error("GitHub Release workflow is missing its tag trigger or publication step.");
