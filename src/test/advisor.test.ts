@@ -29,7 +29,7 @@ const execFile = promisify(execFileCallback);
 test("release install policy creates a pinned consumer root and rejects unrelated manifests", async () => {
   const directory = await mkdtemp(join(tmpdir(), "advisor-install-policy-"));
   const packageRoot = join(directory, "packages");
-  const archiveName = "sustech-course-advisor-0.2.2.tgz";
+  const archiveName = "sustech-course-advisor-0.2.3.tgz";
   const archive = join(directory, archiveName);
   const policy = fileURLToPath(new URL("../../skills/sustech-course-advisor/scripts/install-policy.mjs", import.meta.url));
   try {
@@ -67,22 +67,27 @@ test("release install policy verifies exact packages and the safe uuid boundary"
     for (const name of ["sustech-course-advisor", "sustech-cli", "uuid"]) {
       await mkdir(join(packageRoot, "node_modules", name), { recursive: true });
     }
-    await writeFile(join(packageRoot, "node_modules", "sustech-course-advisor", "package.json"), JSON.stringify({ version: "0.2.2" }), "utf8");
+    await writeFile(join(packageRoot, "node_modules", "sustech-course-advisor", "package.json"), JSON.stringify({ version: "0.2.3" }), "utf8");
     await writeFile(join(packageRoot, "node_modules", "sustech-cli", "package.json"), JSON.stringify({ version: "0.10.0" }), "utf8");
     const uuidManifest = join(packageRoot, "node_modules", "uuid", "package.json");
     await writeFile(uuidManifest, JSON.stringify({ version: "11.1.1" }), "utf8");
-    await execFile(process.execPath, [policy, "verify", packageRoot, "0.2.2", "0.10.0"]);
+    await execFile(process.execPath, [policy, "verify", packageRoot, "0.2.3", "0.10.0"]);
 
     await writeFile(uuidManifest, JSON.stringify({ version: "8.3.2" }), "utf8");
     await assert.rejects(
-      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.2", "0.10.0"]),
+      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.3", "0.10.0"]),
       /below the stable 11\.1\.1 boundary/,
     );
     await writeFile(uuidManifest, JSON.stringify({ version: "11.1.1-0" }), "utf8");
     await assert.rejects(
-      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.2", "0.10.0"]),
+      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.3", "0.10.0"]),
       /below the stable 11\.1\.1 boundary/,
     );
+    await rm(join(packageRoot, "node_modules", "uuid"), { recursive: true, force: true });
+    const nestedUuid = join(packageRoot, "node_modules", "exceljs", "node_modules", "uuid");
+    await mkdir(nestedUuid, { recursive: true });
+    await writeFile(join(nestedUuid, "package.json"), JSON.stringify({ version: "11.1.1" }), "utf8");
+    await execFile(process.execPath, [policy, "verify", packageRoot, "0.2.3", "0.10.0"]);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
