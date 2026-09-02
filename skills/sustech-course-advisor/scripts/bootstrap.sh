@@ -2,15 +2,18 @@
 set -eu
 
 NODE_VERSION=${SUSTECH_ADVISOR_NODE_VERSION:-20.18.0}
-ADVISOR_VERSION=${SUSTECH_ADVISOR_VERSION:-0.2.1}
+ADVISOR_VERSION=${SUSTECH_ADVISOR_VERSION:-0.2.2}
 SUSTECH_VERSION=${SUSTECH_CLI_VERSION:-0.10.0}
 ADVISOR_REPOSITORY=${SUSTECH_ADVISOR_RELEASE_REPOSITORY:-Stevvven777/sustech-course-advisor}
 ADVISOR_RELEASE_TAG=${SUSTECH_ADVISOR_RELEASE_TAG:-v$ADVISOR_VERSION}
 ADVISOR_ASSET="sustech-course-advisor-$ADVISOR_VERSION.tgz"
 ADVISOR_RELEASE_BASE_URL=${SUSTECH_ADVISOR_RELEASE_BASE_URL:-"https://github.com/$ADVISOR_REPOSITORY/releases/download/$ADVISOR_RELEASE_TAG"}
 INSTALL_ROOT=${SUSTECH_ADVISOR_INSTALL_ROOT:-"$HOME/.local/share/sustech-course-advisor"}
+mkdir -p "$INSTALL_ROOT"
+INSTALL_ROOT=$(cd "$INSTALL_ROOT" && pwd -P)
 PACKAGE_ROOT="$INSTALL_ROOT/packages"
 BIN_ROOT="$INSTALL_ROOT/bin"
+SCRIPT_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 
 TEMP_ROOT=$(mktemp -d)
 trap 'rm -rf "$TEMP_ROOT"' EXIT HUP INT TERM
@@ -73,7 +76,10 @@ else echo "A SHA-256 verifier is required." >&2; exit 1
 fi
 [ "$ACTUAL" = "$EXPECTED" ] || { echo "Advisor GitHub Release checksum verification failed." >&2; exit 1; }
 run_npm view "sustech-cli@$SUSTECH_VERSION" version --json --fetch-timeout=15000 --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 >/dev/null || { echo "sustech-cli@$SUSTECH_VERSION is not available from the selected npm registry." >&2; exit 1; }
-run_npm install --prefix "$PACKAGE_ROOT" --omit=dev --no-audit --no-fund --fetch-timeout=15000 --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 "$TEMP_ROOT/$ADVISOR_ASSET" "sustech-cli@$SUSTECH_VERSION"
+"$NODE_BIN" "$SCRIPT_ROOT/install-policy.mjs" prepare "$PACKAGE_ROOT" "$TEMP_ROOT/$ADVISOR_ASSET" "$ADVISOR_ASSET" "$SUSTECH_VERSION" || { echo "Could not establish the isolated runtime dependency policy." >&2; exit 1; }
+run_npm install --prefix "$PACKAGE_ROOT" --omit=dev --no-audit --no-fund --fetch-timeout=15000 --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000
+"$NODE_BIN" "$SCRIPT_ROOT/install-policy.mjs" verify "$PACKAGE_ROOT" "$ADVISOR_VERSION" "$SUSTECH_VERSION" || { echo "Installed packages do not satisfy the audited version policy." >&2; exit 1; }
+run_npm audit --prefix "$PACKAGE_ROOT" --omit=dev --audit-level=low --fetch-timeout=15000 --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 >/dev/null || { echo "Installed runtime dependency audit failed." >&2; exit 1; }
 
 printf '%s\n' '#!/bin/sh' "exec \"$NODE_BIN\" \"$PACKAGE_ROOT/node_modules/sustech-course-advisor/dist/cli.js\" \"\$@\"" > "$BIN_ROOT/sustech-advisor"
 printf '%s\n' '#!/bin/sh' "exec \"$NODE_BIN\" \"$PACKAGE_ROOT/node_modules/sustech-cli/dist/cli.js\" \"\$@\"" > "$BIN_ROOT/sustech"

@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $NodeVersion = if ($env:SUSTECH_ADVISOR_NODE_VERSION) { $env:SUSTECH_ADVISOR_NODE_VERSION } else { "20.18.0" }
-$AdvisorVersion = if ($env:SUSTECH_ADVISOR_VERSION) { $env:SUSTECH_ADVISOR_VERSION } else { "0.2.1" }
+$AdvisorVersion = if ($env:SUSTECH_ADVISOR_VERSION) { $env:SUSTECH_ADVISOR_VERSION } else { "0.2.2" }
 $SustechVersion = if ($env:SUSTECH_CLI_VERSION) { $env:SUSTECH_CLI_VERSION } else { "0.10.0" }
 $AdvisorRepository = if ($env:SUSTECH_ADVISOR_RELEASE_REPOSITORY) { $env:SUSTECH_ADVISOR_RELEASE_REPOSITORY } else { "Stevvven777/sustech-course-advisor" }
 $AdvisorReleaseTag = if ($env:SUSTECH_ADVISOR_RELEASE_TAG) { $env:SUSTECH_ADVISOR_RELEASE_TAG } else { "v$AdvisorVersion" }
@@ -76,8 +76,14 @@ try {
     $env:Path = ((Split-Path $NodeBin) + [IO.Path]::PathSeparator + $env:Path)
     & $NpmBin view "sustech-cli@$SustechVersion" version --json --fetch-timeout=15000 --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "sustech-cli@$SustechVersion is not available from the selected npm registry." }
-    & $NpmBin install --prefix $PackageRoot --omit=dev --no-audit --no-fund --fetch-timeout=15000 --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 $advisorArchive "sustech-cli@$SustechVersion"
+    & $NodeBin (Join-Path $PSScriptRoot "install-policy.mjs") prepare $PackageRoot $advisorArchive $AdvisorAsset $SustechVersion
+    if ($LASTEXITCODE -ne 0) { throw "Could not establish the isolated runtime dependency policy." }
+    & $NpmBin install --prefix $PackageRoot --omit=dev --no-audit --no-fund --fetch-timeout=15000 --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000
     if ($LASTEXITCODE -ne 0) { throw "Package installation failed." }
+    & $NodeBin (Join-Path $PSScriptRoot "install-policy.mjs") verify $PackageRoot $AdvisorVersion $SustechVersion
+    if ($LASTEXITCODE -ne 0) { throw "Installed packages do not satisfy the audited version policy." }
+    & $NpmBin audit --prefix $PackageRoot --omit=dev --audit-level=low --fetch-timeout=15000 --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Installed runtime dependency audit failed." }
   } finally {
     $env:Path = $oldPath
   }
