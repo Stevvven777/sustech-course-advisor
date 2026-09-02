@@ -6,6 +6,7 @@ Use the smallest command that answers the current decision. Keep upstream payloa
 
 - `sustech-advisor doctor --profile NAME --live`: checks the local advisor, campus CLI capabilities, credential backend, and a live read-only TIS request. A partial report is not readiness.
 - `sustech-advisor diagnose --profile NAME [--live] [--support-bundle FILE]`: writes a rotating local projected diagnostic and optionally a sanitized local bundle. It never uploads the bundle; external submission requires a separate exact approval.
+- `sustech-advisor init --path PROFILE.json`: after separate academic-read and profile-write approval, the agent drives the local interview and verifies that the exact destination exists, is private, and loads as schema v2. A non-PTY client may send all ordered answers over standard input; never expose those answers as command arguments or logs, and never accept a zero exit without the verified file.
 - `sustech tis degree progress --json` and `sustech tis degree missing --json`: personalize remaining requirements. On timeout, stop retrying after the bounded fallback in `environment.md`; use the confirmed official PDF and visibly mark personalization gaps.
 - `sustech tis courses search CODE --semester TERM --json`: exact current offering lookup. Query by normalized course code rather than requesting the full catalog when the upstream full-catalog path is unreliable.
 - `sustech nces search CODE --json`: find grading evidence, followed by the exact evidence page. Only a complete teaching-team match enters the main score.

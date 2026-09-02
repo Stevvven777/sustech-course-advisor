@@ -1,6 +1,6 @@
 {
   "name": "sustech-course-advisor",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Guided, evidence-aware course planning for SUSTech students",
   "license": "PolyForm-Noncommercial-1.0.0",
   "repository": {
