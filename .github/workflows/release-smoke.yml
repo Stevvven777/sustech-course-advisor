@@ -6,7 +6,7 @@ on:
       version:
         description: Published advisor version without the v prefix
         required: true
-        default: "0.2.3"
+        default: "0.2.4"
         type: string
 
 permissions:
@@ -61,10 +61,15 @@ jobs:
             Write-Output "Consumer manifest:"
             Get-Content (Join-Path $packageRoot "package.json")
           }
-          if (Test-Path (Join-Path $packageRoot "package-lock.json")) {
-            Write-Output "Consumer lockfile:"
-            Get-Content (Join-Path $packageRoot "package-lock.json")
+          Push-Location -LiteralPath $packageRoot
+          try {
+            if (Test-Path "package-lock.json") {
+              Write-Output "Advisor lock entry:"
+              node -e "const l=require('./package-lock.json'); console.log(JSON.stringify(l.packages?.['node_modules/sustech-course-advisor'] ?? null, null, 2))"
+            }
+            Write-Output "Installed dependency tree:"
+            npm.cmd ls --all --json
+          } finally {
+            Pop-Location
           }
-          Write-Output "Installed dependency tree:"
-          npm.cmd ls --prefix $packageRoot --all --json
           exit 0

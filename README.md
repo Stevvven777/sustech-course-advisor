@@ -8,7 +8,7 @@
 [简体中文](#简体中文) · [English](#english)
 
 [![Status](https://img.shields.io/badge/status-early%20preview-F59E0B)](#项目状态)
-[![Version](https://img.shields.io/badge/version-0.2.3-173F5F)](https://github.com/Stevvven777/sustech-course-advisor/releases/tag/v0.2.3)
+[![Version](https://img.shields.io/badge/version-0.2.4-173F5F)](https://github.com/Stevvven777/sustech-course-advisor/releases/tag/v0.2.4)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A520.18.0-339933?logo=nodedotjs&logoColor=white)](./package.json)
 [![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial-5B5B5B)](./LICENSE)
 
@@ -117,7 +117,7 @@ Advisor 的正式发布物位于本仓库的 [GitHub Releases](https://github.co
 
 ## 项目状态
 
-当前版本为 **0.2.3 early preview**。核心求解、环境检查、HTML/XLSX/ICS 输出和只读选课预览已经具备测试覆盖，但真实学期中的培养方案差异、课程供给和上游服务变化仍需要更多验证。
+当前版本为 **0.2.4 early preview**。核心求解、环境检查、HTML/XLSX/ICS 输出和只读选课预览已经具备测试覆盖，但真实学期中的培养方案差异、课程供给和上游服务变化仍需要更多验证。
 
 欢迎通过 Issues 报告可复现的问题、培养方案边界或输出改进建议。如果这个项目对你有帮助，也欢迎点一个 Star。
 
@@ -247,7 +247,7 @@ Campus requests use direct access by default. After repeated live-query timeouts
 
 ## Project status
 
-The current release is **0.2.3 early preview**. Core solving, environment checks, HTML/XLSX/ICS exports, and read-only enrollment previews have automated coverage, but real-semester curriculum differences, course supply, and upstream changes still need broader validation.
+The current release is **0.2.4 early preview**. Core solving, environment checks, HTML/XLSX/ICS exports, and read-only enrollment previews have automated coverage, but real-semester curriculum differences, course supply, and upstream changes still need broader validation.
 
 Reproducible bug reports, curriculum edge cases, and output ideas are welcome through Issues. If the project helps you, consider giving it a Star.
 

@@ -41,6 +41,16 @@ if (operation === "prepare") {
   const [rootInput, advisorVersion, cliVersion] = args;
   if (!rootInput || !advisorVersion || !cliVersion) throw new Error("verify requires root and exact package versions.");
   const root = resolve(rootInput);
+  const expectedAdvisorSpecifier = `file:../releases/sustech-course-advisor-${advisorVersion}.tgz`;
+  const consumerManifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  const consumerLock = JSON.parse(readFileSync(join(root, "package-lock.json"), "utf8"));
+  const lockedAdvisor = consumerLock.packages?.["node_modules/sustech-course-advisor"];
+  if (consumerManifest.dependencies?.["sustech-course-advisor"] !== expectedAdvisorSpecifier) {
+    throw new Error("Installed advisor no longer points to the verified GitHub Release archive.");
+  }
+  if (!lockedAdvisor || lockedAdvisor.link === true || lockedAdvisor.resolved !== expectedAdvisorSpecifier) {
+    throw new Error("Installed advisor lock entry is not the verified GitHub Release archive.");
+  }
   const installedAdvisor = JSON.parse(readFileSync(join(root, "node_modules", "sustech-course-advisor", "package.json"), "utf8")).version;
   const installedCli = JSON.parse(readFileSync(join(root, "node_modules", "sustech-cli", "package.json"), "utf8")).version;
   const requireFromAdvisor = createRequire(join(root, "node_modules", "sustech-course-advisor", "package.json"));
