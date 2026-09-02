@@ -2,7 +2,7 @@
 set -eu
 
 NODE_VERSION=${SUSTECH_ADVISOR_NODE_VERSION:-20.18.0}
-ADVISOR_VERSION=${SUSTECH_ADVISOR_VERSION:-0.2.5}
+ADVISOR_VERSION=${SUSTECH_ADVISOR_VERSION:-0.2.6}
 SUSTECH_VERSION=${SUSTECH_CLI_VERSION:-0.10.0}
 ADVISOR_REPOSITORY=${SUSTECH_ADVISOR_RELEASE_REPOSITORY:-Stevvven777/sustech-course-advisor}
 ADVISOR_RELEASE_TAG=${SUSTECH_ADVISOR_RELEASE_TAG:-v$ADVISOR_VERSION}
@@ -13,6 +13,7 @@ mkdir -p "$INSTALL_ROOT"
 INSTALL_ROOT=$(cd "$INSTALL_ROOT" && pwd -P)
 PACKAGE_ROOT="$INSTALL_ROOT/packages"
 BIN_ROOT="$INSTALL_ROOT/bin"
+NPM_CACHE_ROOT="$INSTALL_ROOT/cache/npm"
 SCRIPT_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 
 TEMP_ROOT=$(mktemp -d)
@@ -59,12 +60,13 @@ else
 fi
 
 run_npm() {
-  if [ -n "${NODE_HOME:-}" ]; then PATH="$NODE_HOME/bin:$PATH" "$NPM_BIN" "$@"
-  else "$NPM_BIN" "$@"
+  if [ -n "${NODE_HOME:-}" ]; then PATH="$NODE_HOME/bin:$PATH" npm_config_cache="$NPM_CACHE_ROOT" "$NPM_BIN" "$@"
+  else npm_config_cache="$NPM_CACHE_ROOT" "$NPM_BIN" "$@"
   fi
 }
 
-mkdir -p "$PACKAGE_ROOT" "$BIN_ROOT"
+mkdir -p "$PACKAGE_ROOT" "$BIN_ROOT" "$NPM_CACHE_ROOT"
+chmod 700 "$NPM_CACHE_ROOT"
 command -v curl >/dev/null 2>&1 || { echo "curl is required to download the advisor GitHub Release." >&2; exit 1; }
 curl -L --fail --silent --show-error --connect-timeout 10 --max-time 180 --retry 1 --retry-delay 1 "$ADVISOR_RELEASE_BASE_URL/$ADVISOR_ASSET" -o "$TEMP_ROOT/$ADVISOR_ASSET"
 curl -L --fail --silent --show-error --connect-timeout 10 --max-time 180 --retry 1 --retry-delay 1 "$ADVISOR_RELEASE_BASE_URL/$ADVISOR_ASSET.sha256" -o "$TEMP_ROOT/$ADVISOR_ASSET.sha256"

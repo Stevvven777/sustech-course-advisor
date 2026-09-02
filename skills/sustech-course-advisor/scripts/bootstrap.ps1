@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $NodeVersion = if ($env:SUSTECH_ADVISOR_NODE_VERSION) { $env:SUSTECH_ADVISOR_NODE_VERSION } else { "20.18.0" }
-$AdvisorVersion = if ($env:SUSTECH_ADVISOR_VERSION) { $env:SUSTECH_ADVISOR_VERSION } else { "0.2.5" }
+$AdvisorVersion = if ($env:SUSTECH_ADVISOR_VERSION) { $env:SUSTECH_ADVISOR_VERSION } else { "0.2.6" }
 $SustechVersion = if ($env:SUSTECH_CLI_VERSION) { $env:SUSTECH_CLI_VERSION } else { "0.10.0" }
 $AdvisorRepository = if ($env:SUSTECH_ADVISOR_RELEASE_REPOSITORY) { $env:SUSTECH_ADVISOR_RELEASE_REPOSITORY } else { "Stevvven777/sustech-course-advisor" }
 $AdvisorReleaseTag = if ($env:SUSTECH_ADVISOR_RELEASE_TAG) { $env:SUSTECH_ADVISOR_RELEASE_TAG } else { "v$AdvisorVersion" }
@@ -11,6 +11,7 @@ $AdvisorReleaseBaseUrl = if ($env:SUSTECH_ADVISOR_RELEASE_BASE_URL) { $env:SUSTE
 $InstallRoot = if ($env:SUSTECH_ADVISOR_INSTALL_ROOT) { $env:SUSTECH_ADVISOR_INSTALL_ROOT } else { Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "sustech-course-advisor" }
 $PackageRoot = Join-Path $InstallRoot "packages"
 $BinRoot = Join-Path $InstallRoot "bin"
+$NpmCacheRoot = Join-Path (Join-Path $InstallRoot "cache") "npm"
 
 function Test-NodeVersion([string]$NodePath) {
   $actual = (& $NodePath -p "process.versions.node").Split(".") | ForEach-Object { [int]$_ }
@@ -56,7 +57,7 @@ if ($NodeCommand -and $NpmCommand -and (Test-NodeVersion $NodeCommand.Source)) {
   }
 }
 
-New-Item -ItemType Directory -Force -Path $PackageRoot, $BinRoot | Out-Null
+New-Item -ItemType Directory -Force -Path $PackageRoot, $BinRoot, $NpmCacheRoot | Out-Null
 $releaseTemporary = Join-Path ([IO.Path]::GetTempPath()) ("sustech-advisor-release-" + [Guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $releaseTemporary | Out-Null
 try {
@@ -74,17 +75,17 @@ try {
   $oldPath = $env:Path
   try {
     $env:Path = ((Split-Path $NodeBin) + [IO.Path]::PathSeparator + $env:Path)
-    & $NpmBin view "sustech-cli@$SustechVersion" version --json --fetch-timeout=15000 --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 | Out-Null
+    & $NpmBin --cache=$NpmCacheRoot view "sustech-cli@$SustechVersion" version --json --fetch-timeout=15000 --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "sustech-cli@$SustechVersion is not available from the selected npm registry." }
     & $NodeBin (Join-Path $PSScriptRoot "install-policy.mjs") prepare $PackageRoot $advisorArchive $AdvisorAsset $SustechVersion
     if ($LASTEXITCODE -ne 0) { throw "Could not establish the isolated runtime dependency policy." }
     Push-Location -LiteralPath $PackageRoot
     try {
-      & $NpmBin install --omit=dev --no-audit --no-fund --fetch-timeout=15000 --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000
+      & $NpmBin --cache=$NpmCacheRoot install --omit=dev --no-audit --no-fund --fetch-timeout=15000 --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000
       if ($LASTEXITCODE -ne 0) { throw "Package installation failed." }
       & $NodeBin (Join-Path $PSScriptRoot "install-policy.mjs") verify $PackageRoot $AdvisorVersion $SustechVersion
       if ($LASTEXITCODE -ne 0) { throw "Installed packages do not satisfy the audited version and provenance policy." }
-      & $NpmBin audit --omit=dev --audit-level=low --fetch-timeout=15000 --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 | Out-Null
+      & $NpmBin --cache=$NpmCacheRoot audit --omit=dev --audit-level=low --fetch-timeout=15000 --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 | Out-Null
       if ($LASTEXITCODE -ne 0) { throw "Installed runtime dependency audit failed." }
     } finally {
       Pop-Location
