@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { access } from "node:fs/promises";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
@@ -25,6 +25,68 @@ import { fetchLiveRecommendationSources } from "../core/planning.js";
 import type { AdvisorProfile, CourseSection, NcesCourseEvidence } from "../types.js";
 
 const execFile = promisify(execFileCallback);
+
+test("release install policy creates a pinned consumer root and rejects unrelated manifests", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "advisor-install-policy-"));
+  const packageRoot = join(directory, "packages");
+  const archiveName = "sustech-course-advisor-0.2.2.tgz";
+  const archive = join(directory, archiveName);
+  const policy = fileURLToPath(new URL("../../skills/sustech-course-advisor/scripts/install-policy.mjs", import.meta.url));
+  try {
+    await mkdir(packageRoot, { recursive: true });
+    await writeFile(archive, "synthetic release archive", "utf8");
+    await execFile(process.execPath, [policy, "prepare", packageRoot, archive, archiveName, "0.10.0"]);
+    const manifest = JSON.parse(await readFile(join(packageRoot, "package.json"), "utf8"));
+    assert.deepEqual(manifest.dependencies, {
+      "sustech-course-advisor": `file:../releases/${archiveName}`,
+      "sustech-cli": "0.10.0",
+    });
+    assert.deepEqual(manifest.overrides, { uuid: "^11.1.1" });
+    assert.equal(await readFile(join(directory, "releases", archiveName), "utf8"), "synthetic release archive");
+
+    await writeFile(join(packageRoot, "package.json"), JSON.stringify({ name: "unrelated-project" }), "utf8");
+    await assert.rejects(
+      execFile(process.execPath, [policy, "prepare", packageRoot, archive, archiveName, "0.10.0"]),
+      /Refusing to replace an unrelated package manifest/,
+    );
+    await writeFile(join(packageRoot, "package.json"), JSON.stringify({ dependencies: { unrelated: "1.0.0" } }), "utf8");
+    await assert.rejects(
+      execFile(process.execPath, [policy, "prepare", packageRoot, archive, archiveName, "0.10.0"]),
+      /Refusing to replace an unrelated package manifest/,
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("release install policy verifies exact packages and the safe uuid boundary", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "advisor-install-verify-"));
+  const packageRoot = join(directory, "packages");
+  const policy = fileURLToPath(new URL("../../skills/sustech-course-advisor/scripts/install-policy.mjs", import.meta.url));
+  try {
+    for (const name of ["sustech-course-advisor", "sustech-cli", "uuid"]) {
+      await mkdir(join(packageRoot, "node_modules", name), { recursive: true });
+    }
+    await writeFile(join(packageRoot, "node_modules", "sustech-course-advisor", "package.json"), JSON.stringify({ version: "0.2.2" }), "utf8");
+    await writeFile(join(packageRoot, "node_modules", "sustech-cli", "package.json"), JSON.stringify({ version: "0.10.0" }), "utf8");
+    const uuidManifest = join(packageRoot, "node_modules", "uuid", "package.json");
+    await writeFile(uuidManifest, JSON.stringify({ version: "11.1.1" }), "utf8");
+    await execFile(process.execPath, [policy, "verify", packageRoot, "0.2.2", "0.10.0"]);
+
+    await writeFile(uuidManifest, JSON.stringify({ version: "8.3.2" }), "utf8");
+    await assert.rejects(
+      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.2", "0.10.0"]),
+      /below the stable 11\.1\.1 boundary/,
+    );
+    await writeFile(uuidManifest, JSON.stringify({ version: "11.1.1-0" }), "utf8");
+    await assert.rejects(
+      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.2", "0.10.0"]),
+      /below the stable 11\.1\.1 boundary/,
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 test("multi-person NCES evidence is attributable only to the exact complete team", () => {
   const section = course("CS101", "A", ["张老师", "李助教"], 1);

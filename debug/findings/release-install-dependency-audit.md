@@ -1,0 +1,8 @@
+# Release-install dependency audit
+
+- Symptom: the source checkout passed `npm audit --omit=dev`, while a clean `v0.2.1` GitHub Release installation reported moderate advisory `GHSA-w5hq-g745-h8pq` on `uuid@8.3.2` through `exceljs@4.4.0`.
+- Root cause: npm applies `overrides` only from the installation root. The advisor package's reviewed `uuid: ^11.1.1` override protected repository builds but was ignored when the Release archive became a dependency of the bootstrap-created consumer root.
+- Safety impact: repository-only audit evidence overstated the security of the installed artifact. Functional Release smoke could pass while the consumer graph still contained an advisory.
+- Downstream containment: both bootstraps retain the checksummed archive and create a private manifest only inside their dedicated installation root, reject an unrelated pre-existing manifest, record exact reusable dependency entries, apply the reviewed uuid override before resolution, require the installed version to be at least 11.1.1, and fail closed when `npm audit --omit=dev --audit-level=low` finds any runtime advisory.
+- Release evidence: issue #17 remains open until a clean public `v0.2.2` install reports zero findings on macOS, Ubuntu, and Windows and an independent Darwin arm64 install confirms the resolved tree.
+- Maintenance rule: audit both the source lockfile and the bootstrap-created consumer lockfile. Never assume that `overrides` declared by a package will affect downstream consumers.
