@@ -46,9 +46,11 @@ test("release launchers bind the audited sibling CLI and preserve explicit overr
     await writeFile(advisorEntry, [
       'const { spawnSync } = require("node:child_process");',
       'const target = process.env.SUSTECH_BIN || "sustech";',
-      'const command = process.platform === "win32" && /\\.(?:cmd|bat)$/i.test(target) ? (process.env.ComSpec || "cmd.exe") : target;',
-      'const args = command === target ? ["version"] : ["/d", "/s", "/c", `call "${target}" version`];',
-      'const child = spawnSync(command, args, { encoding: "utf8" });',
+      'const isBatch = process.platform === "win32" && /\\.(?:cmd|bat)$/i.test(target);',
+      'const command = isBatch ? (process.env.ComSpec || "cmd.exe") : target;',
+      'const quoted = [target, "version"].map((value) => `"${value.replaceAll(`"`, `""`)}"`).join(" ");',
+      'const args = isBatch ? ["/d", "/s", "/c", `"${quoted}"`] : ["version"];',
+      'const child = spawnSync(command, args, { encoding: "utf8", windowsVerbatimArguments: isBatch });',
       'if (child.error || child.status !== 0) { process.stderr.write(String(child.error || child.stderr)); process.exit(child.status || 1); }',
       'process.stdout.write(JSON.stringify({ executable: target, version: child.stdout.trim() }));',
       "",
@@ -68,8 +70,9 @@ test("release launchers bind the audited sibling CLI and preserve explicit overr
     const advisorLauncher = join(binRoot, advisorName);
     const siblingLauncher = join(binRoot, commandName);
     const runLauncher = async (env: NodeJS.ProcessEnv): Promise<Record<string, string>> => {
+      const commandLine = `""${advisorLauncher.replaceAll('"', '""')}""`;
       const result = windows
-        ? await execFile(process.env.ComSpec || "cmd.exe", ["/d", "/s", "/c", `call "${advisorLauncher}"`], { encoding: "utf8", env })
+        ? await execFile(process.env.ComSpec || "cmd.exe", ["/d", "/s", "/c", commandLine], { encoding: "utf8", env, windowsVerbatimArguments: true })
         : await execFile(advisorLauncher, [], { encoding: "utf8", env });
       return JSON.parse(result.stdout) as Record<string, string>;
     };
