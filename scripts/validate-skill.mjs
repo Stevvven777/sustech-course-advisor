@@ -19,6 +19,7 @@ const manifest = JSON.parse(readFileSync(resolve(projectRoot, "package.json"), "
 const posixBootstrap = readFileSync(resolve(root, "scripts", "bootstrap.sh"), "utf8");
 const powershellBootstrap = readFileSync(resolve(root, "scripts", "bootstrap.ps1"), "utf8");
 const releaseWorkflow = readFileSync(resolve(projectRoot, ".github", "workflows", "release.yml"), "utf8");
+const releaseSmokeWorkflow = readFileSync(resolve(projectRoot, ".github", "workflows", "release-smoke.yml"), "utf8");
 for (const [name, script] of [["POSIX", posixBootstrap], ["PowerShell", powershellBootstrap]]) {
   if (!script.includes(manifest.version)) throw new Error(`${name} bootstrap version differs from package.json.`);
   if (!script.includes("Stevvven777/sustech-course-advisor")) throw new Error(`${name} bootstrap is not pinned to the project GitHub repository.`);
@@ -28,4 +29,8 @@ for (const [name, script] of [["POSIX", posixBootstrap], ["PowerShell", powershe
 if (!posixBootstrap.includes("shasum") || !posixBootstrap.includes("sha256sum")) throw new Error("POSIX bootstrap must support a SHA-256 verifier.");
 if (!powershellBootstrap.includes("Get-FileHash")) throw new Error("PowerShell bootstrap must verify the advisor archive hash.");
 if (!releaseWorkflow.includes('tags: ["v*"]') || !releaseWorkflow.includes("gh release create")) throw new Error("GitHub Release workflow is missing its tag trigger or publication step.");
+if (!releaseSmokeWorkflow.includes("workflow_dispatch:") || !releaseSmokeWorkflow.includes("bootstrap.sh") || !releaseSmokeWorkflow.includes("bootstrap.ps1")) throw new Error("Cross-platform GitHub Release smoke workflow is incomplete.");
+for (const [name, workflow] of [["release", releaseWorkflow], ["release smoke", releaseSmokeWorkflow]]) {
+  if (/uses:\s+actions\/(?:checkout|setup-node)@v\d+/i.test(workflow)) throw new Error(`${name} workflow uses a mutable major-version action reference.`);
+}
 process.stdout.write(`Skill validation passed (${new Set(references).size} references).\n`);
