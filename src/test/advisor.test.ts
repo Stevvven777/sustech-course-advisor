@@ -285,10 +285,11 @@ test("schema v1 profiles and results migrate conservatively to schema v2", async
   }
 });
 
-test("CLI init consumes complete redirected answers and never exits silently on truncated input", async () => {
+test("CLI init consumes exactly eleven redirected answers and rejects malformed streams", async () => {
   const directory = await mkdtemp(join(tmpdir(), "advisor-init-input-"));
   const profilePath = join(directory, "created-profile.json");
   const incompletePath = join(directory, "incomplete-profile.json");
+  const surplusPath = join(directory, "surplus-profile.json");
   const script = join(directory, "fake-sustech.mjs");
   const executable = process.platform === "win32" ? join(directory, "fake-sustech.cmd") : script;
   const cli = fileURLToPath(new URL("../cli.js", import.meta.url));
@@ -311,8 +312,16 @@ test("CLI init consumes complete redirected answers and never exits silently on 
       input: "2023\n", encoding: "utf8", env: { ...process.env, SUSTECH_BIN: executable },
     });
     assert.notEqual(incomplete.status, 0);
-    assert.match(incomplete.stderr, /ended before all questions/i);
+    assert.match(incomplete.stderr, /exactly 11 answers/i);
     await assert.rejects(access(incompletePath));
+
+    const surplus = spawnSync(process.execPath, [cli, "init", "--path", surplusPath], {
+      input: answers.replace("Synthetic official curriculum\n", "unexpected extra line\nSynthetic official curriculum\n"),
+      encoding: "utf8", env: { ...process.env, SUSTECH_BIN: executable },
+    });
+    assert.notEqual(surplus.status, 0);
+    assert.match(surplus.stderr, /exactly 11 answers/i);
+    await assert.rejects(access(surplusPath));
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

@@ -23,6 +23,7 @@ export async function guidedProfile(): Promise<AdvisorProfile> {
 }
 
 type Ask = (question: string) => Promise<string>;
+const PROFILE_ANSWER_COUNT = 11;
 
 async function collectProfile(context: Record<string, unknown>, ask: Ask): Promise<AdvisorProfile> {
   output.write("我会先确认培养方案，再询问负载、时间、兴趣和教学团队偏好。\n");
@@ -54,6 +55,7 @@ async function redirectedAnswers(): Promise<string[]> {
   if (!raw) throw new Error("Non-interactive profile input is empty.");
   const answers = raw.split(/\r?\n/);
   if (/\r?\n$/.test(raw)) answers.pop();
+  if (answers.length !== PROFILE_ANSWER_COUNT) throw new Error(`Non-interactive profile input must contain exactly ${PROFILE_ANSWER_COUNT} answers.`);
   return answers;
 }
 

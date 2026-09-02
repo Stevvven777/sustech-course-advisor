@@ -41,7 +41,7 @@ Do not proceed to curriculum interpretation or recommendation until the student 
 4. Ask whether the student has direct experience with a complete teaching team or wants to avoid one. Store this separately from NCES evidence.
 5. Summarize the confirmed framework and preferences before writing a profile. Obtain separate approval for the exact destination because the write stores personal planning data locally.
 
-After that approval, drive `sustech-advisor init --path PROFILE.json` yourself. Prefer its local interactive prompt; when the execution client has no PTY, provide all prompt answers in order over standard input. Do not place personal answers in command arguments, shell history, logs, or repository fixtures. Treat exit status alone as insufficient: verify that the exact destination now exists with private permissions, loads as `schemaVersion: "2"`, and contains the values the student confirmed. An empty or truncated redirected interview must fail without creating a partial profile.
+After that approval, drive `sustech-advisor init --path PROFILE.json` yourself. Prefer its local interactive prompt; when the execution client has no PTY, provide all eleven prompt answers in order over standard input. Do not place personal answers in command arguments, shell history, logs, or repository fixtures. Treat exit status alone as insufficient: verify that the exact destination now exists with private permissions, loads as `schemaVersion: "2"`, and contains the values the student confirmed. An empty, truncated, or surplus redirected interview must fail without creating a partial profile.
 
 Offer reasonable defaults, but never silently choose a curriculum version, track, maximum credit load, or interpretation of a conditional requirement.
 
