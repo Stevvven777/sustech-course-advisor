@@ -37,7 +37,7 @@ jobs:
         run: npm test
 
       - name: Validate Skill and privacy boundaries
-        run: npm run validate:skill && npm run privacy:tracked && npm run license:check
+        run: npm run validate:skill && npm run privacy:tracked && npm run license:check && npm run release:check
 
       - name: Validate POSIX bootstrap syntax
         if: runner.os != 'Windows'

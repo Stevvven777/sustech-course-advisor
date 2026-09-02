@@ -23,8 +23,9 @@
     "privacy:staged": "node scripts/check-privacy.mjs --staged",
     "privacy:tracked": "node scripts/check-privacy.mjs --tracked",
     "license:check": "node scripts/check-licenses.mjs",
+    "release:check": "node scripts/check-release-version.mjs",
     "validate:skill": "node scripts/validate-skill.mjs",
-    "prepack": "npm run check && npm test && npm run validate:skill && npm run privacy:tracked && npm run license:check"
+    "prepack": "npm run check && npm test && npm run validate:skill && npm run privacy:tracked && npm run license:check && npm run release:check"
   },
   "dependencies": { "exceljs": "^4.4.0" },
   "overrides": { "uuid": "^11.1.1" },
