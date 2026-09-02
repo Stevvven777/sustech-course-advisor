@@ -61,6 +61,10 @@ jobs:
             Write-Output "Consumer manifest:"
             Get-Content (Join-Path $packageRoot "package.json")
           }
+          if (-not (Test-Path $packageRoot)) {
+            Write-Output "The consumer package root was not created before the failure."
+            exit 0
+          }
           Push-Location -LiteralPath $packageRoot
           try {
             if (Test-Path "package-lock.json") {
