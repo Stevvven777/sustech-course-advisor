@@ -8,7 +8,7 @@
 [简体中文](#简体中文) · [English](#english)
 
 [![Status](https://img.shields.io/badge/status-early%20preview-F59E0B)](#项目状态)
-[![Version](https://img.shields.io/badge/version-0.2.0-173F5F)](./package.json)
+[![Version](https://img.shields.io/badge/version-0.2.0-173F5F)](https://github.com/Stevvven777/sustech-course-advisor/releases/tag/v0.2.0)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A520.18.0-339933?logo=nodedotjs&logoColor=white)](./package.json)
 [![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial-5B5B5B)](./LICENSE)
 
@@ -79,6 +79,8 @@ SUSTech Course Advisor 是一个面向南方科技大学学生的本地选课规
 > 使用 `$sustech-course-advisor`，按照我的学年和专业推荐 2026 秋季课程。
 
 接下来 Agent 会自行说明流程并检查环境。缺少 Node.js、`sustech` 或 `sustech-advisor` 时，它会先说明安装来源、版本、位置和影响，在你确认后自动完成可执行的配置；需要登录时，它会引导你在安全的本地交互界面完成，不会在聊天中索要密码。环境就绪后，它才会征求个人信息读取许可、请你确认学籍摘要，再给出三套可比较的方案。
+
+Advisor 的正式发布物位于本仓库的 [GitHub Releases](https://github.com/Stevvven777/sustech-course-advisor/releases)，不发布到 npm。Skill 会固定到明确版本，下载发布归档及其 SHA-256 文件，校验后再安装到用户目录；npm 只用于解析运行时依赖和安装上游目前正式发布的 `sustech-cli`，不会执行全局安装。
 
 项目以 macOS、Windows 和 Linux 三端兼容为约束。核心逻辑使用跨平台 Node.js；文档在 shell 语法不同时分别给出 Windows PowerShell 与 macOS/Linux POSIX shell 写法。
 
@@ -208,6 +210,8 @@ Regular users do not need to learn the CLI commands below. The bundled Agent Ski
 > Use `$sustech-course-advisor` to recommend courses for Fall 2026 based on my year and major.
 
 The Agent will explain the flow and inspect the environment. If Node.js, `sustech`, or `sustech-advisor` is missing, it will first show the install source, version, destination, and impact, then complete the supported setup after you approve it. When login is needed, it will guide you through a secure local prompt and never ask for your password in chat. Only after the environment is ready will it request permission for personal academic reads, ask you to confirm the redacted snapshot, and present three comparable plans.
+
+The advisor's official artifacts are published in this repository's [GitHub Releases](https://github.com/Stevvven777/sustech-course-advisor/releases), not to npm. The Skill pins an exact release, downloads the archive and its SHA-256 file, verifies it, and installs it under the user's own directory. npm is used only to resolve runtime dependencies and install the upstream `sustech-cli` from its current official distribution channel; the bootstrap never performs a global install.
 
 The project treats macOS, Windows, and Linux support as a product constraint. Core behavior uses cross-platform Node.js, and the documentation gives separate Windows PowerShell and macOS/Linux POSIX shell commands when syntax differs.
 

@@ -3,6 +3,15 @@
   "version": "0.2.0",
   "description": "Guided, evidence-aware course planning for SUSTech students",
   "license": "PolyForm-Noncommercial-1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Stevvven777/sustech-course-advisor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Stevvven777/sustech-course-advisor/issues"
+  },
+  "homepage": "https://github.com/Stevvven777/sustech-course-advisor#readme",
+  "keywords": ["sustech", "course-planning", "agent-skill", "timetable"],
   "type": "module",
   "bin": { "sustech-advisor": "dist/cli.js" },
   "files": ["dist", "skills", "LICENSE", "README.md", "THIRD_PARTY_NOTICES.md"],

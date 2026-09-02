@@ -1,6 +1,6 @@
 # Third-party notices
 
-The npm package does not bundle dependency source into its tarball; npm installs runtime dependencies as separate packages with their own notices. The following two transitive packages need an explicit resolution in this repository's release check.
+The GitHub Release archive does not bundle dependency source into its tarball; npm installs runtime dependencies as separate packages with their own notices. The following two transitive packages need an explicit resolution in this repository's release check.
 
 ## JSZip 3.10.1 — MIT option selected
 
