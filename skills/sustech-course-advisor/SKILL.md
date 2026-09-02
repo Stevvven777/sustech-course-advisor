@@ -7,7 +7,7 @@ description: Guide SUSTech students through curriculum-aware course planning, co
 
 默认使用简体中文与学生交流，包括提问、授权说明、环境检查结果、错误解释和课程推荐。只有当学生明确要求其他语言，或持续使用其他语言交流时，才切换语言；命令、参数、路径和上游原始字段保持原样，不要翻译。
 
-Requires an Agent Skills-compatible client with local file and shell access. Node.js 20.18+, `sustech`, and `sustech-advisor` may be configured during the guided preflight with user approval.
+Requires an Agent Skills-compatible client with local file and shell access. Node.js 20.18+, `sustech`, and `sustech-advisor` may be configured during the guided preflight with user approval. The advisor itself is distributed as a checksummed GitHub Release asset, not as an npm-published package.
 
 Use the installed `sustech` CLI as the only interface to campus and NCES services. Treat `sustech.online` as a trusted secondary community source for SUSTech-specific guidance, subject to the source hierarchy below. After the brief roadmap and planning-path choice, complete the environment preflight in [references/environment.md](references/environment.md) before authenticated onboarding or personal-data reads. Do not treat a partially working checkout, missing capability, unavailable credential source, or failed live authentication as ready.
 

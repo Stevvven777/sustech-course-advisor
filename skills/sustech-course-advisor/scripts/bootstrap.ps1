@@ -4,6 +4,10 @@ Set-StrictMode -Version Latest
 $NodeVersion = if ($env:SUSTECH_ADVISOR_NODE_VERSION) { $env:SUSTECH_ADVISOR_NODE_VERSION } else { "20.18.0" }
 $AdvisorVersion = if ($env:SUSTECH_ADVISOR_VERSION) { $env:SUSTECH_ADVISOR_VERSION } else { "0.2.0" }
 $SustechVersion = if ($env:SUSTECH_CLI_VERSION) { $env:SUSTECH_CLI_VERSION } else { "0.10.0" }
+$AdvisorRepository = if ($env:SUSTECH_ADVISOR_RELEASE_REPOSITORY) { $env:SUSTECH_ADVISOR_RELEASE_REPOSITORY } else { "Stevvven777/sustech-course-advisor" }
+$AdvisorReleaseTag = if ($env:SUSTECH_ADVISOR_RELEASE_TAG) { $env:SUSTECH_ADVISOR_RELEASE_TAG } else { "v$AdvisorVersion" }
+$AdvisorAsset = "sustech-course-advisor-$AdvisorVersion.tgz"
+$AdvisorReleaseBaseUrl = if ($env:SUSTECH_ADVISOR_RELEASE_BASE_URL) { $env:SUSTECH_ADVISOR_RELEASE_BASE_URL.TrimEnd("/") } else { "https://github.com/$AdvisorRepository/releases/download/$AdvisorReleaseTag" }
 $InstallRoot = if ($env:SUSTECH_ADVISOR_INSTALL_ROOT) { $env:SUSTECH_ADVISOR_INSTALL_ROOT } else { Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "sustech-course-advisor" }
 $PackageRoot = Join-Path $InstallRoot "packages"
 $BinRoot = Join-Path $InstallRoot "bin"
@@ -37,8 +41,8 @@ if ($NodeCommand -and $NpmCommand -and (Test-NodeVersion $NodeCommand.Source)) {
     try {
       $archive = "$nodeName.zip"
       $baseUrl = "https://nodejs.org/dist/v$NodeVersion"
-      Invoke-WebRequest "$baseUrl/$archive" -OutFile (Join-Path $temporary $archive)
-      Invoke-WebRequest "$baseUrl/SHASUMS256.txt" -OutFile (Join-Path $temporary "SHASUMS256.txt")
+      Invoke-WebRequest "$baseUrl/$archive" -OutFile (Join-Path $temporary $archive) -TimeoutSec 180
+      Invoke-WebRequest "$baseUrl/SHASUMS256.txt" -OutFile (Join-Path $temporary "SHASUMS256.txt") -TimeoutSec 180
       $line = Get-Content (Join-Path $temporary "SHASUMS256.txt") | Where-Object { $_ -match "\s$([Regex]::Escape($archive))$" } | Select-Object -First 1
       if (-not $line) { throw "Node.js checksum entry is missing." }
       $expected = ($line -split "\s+")[0].ToLowerInvariant()
@@ -53,17 +57,32 @@ if ($NodeCommand -and $NpmCommand -and (Test-NodeVersion $NodeCommand.Source)) {
 }
 
 New-Item -ItemType Directory -Force -Path $PackageRoot, $BinRoot | Out-Null
-$oldPath = $env:Path
+$releaseTemporary = Join-Path ([IO.Path]::GetTempPath()) ("sustech-advisor-release-" + [Guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Path $releaseTemporary | Out-Null
 try {
-  $env:Path = ((Split-Path $NodeBin) + [IO.Path]::PathSeparator + $env:Path)
-  & $NpmBin view "sustech-course-advisor@$AdvisorVersion" version --json | Out-Null
-  if ($LASTEXITCODE -ne 0) { throw "sustech-course-advisor@$AdvisorVersion is not available from the selected npm registry." }
-  & $NpmBin view "sustech-cli@$SustechVersion" version --json | Out-Null
-  if ($LASTEXITCODE -ne 0) { throw "sustech-cli@$SustechVersion is not available from the selected npm registry." }
-  & $NpmBin install --prefix $PackageRoot --omit=dev --no-audit --no-fund "sustech-course-advisor@$AdvisorVersion" "sustech-cli@$SustechVersion"
-  if ($LASTEXITCODE -ne 0) { throw "Package installation failed." }
+  $advisorArchive = Join-Path $releaseTemporary $AdvisorAsset
+  $advisorChecksum = "$advisorArchive.sha256"
+  Invoke-WebRequest "$AdvisorReleaseBaseUrl/$AdvisorAsset" -OutFile $advisorArchive -TimeoutSec 180
+  Invoke-WebRequest "$AdvisorReleaseBaseUrl/$AdvisorAsset.sha256" -OutFile $advisorChecksum -TimeoutSec 180
+  $checksumPattern = "^\s*([0-9A-Fa-f]{64})\s+\*?$([Regex]::Escape($AdvisorAsset))\s*$"
+  $checksumLine = Get-Content $advisorChecksum | Where-Object { $_ -match $checksumPattern } | Select-Object -First 1
+  if (-not $checksumLine) { throw "Advisor checksum entry is missing." }
+  $expected = ([Regex]::Match($checksumLine, $checksumPattern).Groups[1].Value).ToLowerInvariant()
+  $actual = (Get-FileHash $advisorArchive -Algorithm SHA256).Hash.ToLowerInvariant()
+  if ($actual -ne $expected) { throw "Advisor GitHub Release checksum verification failed." }
+
+  $oldPath = $env:Path
+  try {
+    $env:Path = ((Split-Path $NodeBin) + [IO.Path]::PathSeparator + $env:Path)
+    & $NpmBin view "sustech-cli@$SustechVersion" version --json --fetch-timeout=15000 --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "sustech-cli@$SustechVersion is not available from the selected npm registry." }
+    & $NpmBin install --prefix $PackageRoot --omit=dev --no-audit --no-fund --fetch-timeout=15000 --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 $advisorArchive "sustech-cli@$SustechVersion"
+    if ($LASTEXITCODE -ne 0) { throw "Package installation failed." }
+  } finally {
+    $env:Path = $oldPath
+  }
 } finally {
-  $env:Path = $oldPath
+  Remove-Item -LiteralPath $releaseTemporary -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 $advisorEntry = Join-Path $PackageRoot "node_modules\sustech-course-advisor\dist\cli.js"
