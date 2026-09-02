@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { access } from "node:fs/promises";
-import { execFile as execFileCallback } from "node:child_process";
+import { execFile as execFileCallback, spawnSync } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
@@ -29,7 +29,7 @@ const execFile = promisify(execFileCallback);
 test("release install policy creates a pinned consumer root and rejects unrelated manifests", async () => {
   const directory = await mkdtemp(join(tmpdir(), "advisor-install-policy-"));
   const packageRoot = join(directory, "packages");
-  const archiveName = "sustech-course-advisor-0.2.4.tgz";
+  const archiveName = "sustech-course-advisor-0.2.5.tgz";
   const archive = join(directory, archiveName);
   const policy = fileURLToPath(new URL("../../skills/sustech-course-advisor/scripts/install-policy.mjs", import.meta.url));
   try {
@@ -67,24 +67,24 @@ test("release install policy verifies exact packages and the safe uuid boundary"
     for (const name of ["sustech-course-advisor", "sustech-cli", "exceljs", "uuid"]) {
       await mkdir(join(packageRoot, "node_modules", name), { recursive: true });
     }
-    const advisorSpecifier = "file:../releases/sustech-course-advisor-0.2.4.tgz";
+    const advisorSpecifier = "file:../releases/sustech-course-advisor-0.2.5.tgz";
     await writeFile(join(packageRoot, "package.json"), JSON.stringify({ dependencies: { "sustech-course-advisor": advisorSpecifier } }), "utf8");
-    await writeFile(join(packageRoot, "package-lock.json"), JSON.stringify({ packages: { "node_modules/sustech-course-advisor": { version: "0.2.4", resolved: advisorSpecifier } } }), "utf8");
-    await writeFile(join(packageRoot, "node_modules", "sustech-course-advisor", "package.json"), JSON.stringify({ version: "0.2.4" }), "utf8");
+    await writeFile(join(packageRoot, "package-lock.json"), JSON.stringify({ packages: { "node_modules/sustech-course-advisor": { version: "0.2.5", resolved: advisorSpecifier } } }), "utf8");
+    await writeFile(join(packageRoot, "node_modules", "sustech-course-advisor", "package.json"), JSON.stringify({ version: "0.2.5" }), "utf8");
     await writeFile(join(packageRoot, "node_modules", "sustech-cli", "package.json"), JSON.stringify({ version: "0.10.0" }), "utf8");
     await writeFile(join(packageRoot, "node_modules", "exceljs", "package.json"), JSON.stringify({ version: "4.4.0" }), "utf8");
     const uuidManifest = join(packageRoot, "node_modules", "uuid", "package.json");
     await writeFile(uuidManifest, JSON.stringify({ version: "11.1.1" }), "utf8");
-    await execFile(process.execPath, [policy, "verify", packageRoot, "0.2.4", "0.10.0"]);
+    await execFile(process.execPath, [policy, "verify", packageRoot, "0.2.5", "0.10.0"]);
 
     await writeFile(uuidManifest, JSON.stringify({ version: "8.3.2" }), "utf8");
     await assert.rejects(
-      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.4", "0.10.0"]),
+      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.5", "0.10.0"]),
       /below the stable 11\.1\.1 boundary/,
     );
     await writeFile(uuidManifest, JSON.stringify({ version: "11.1.1-0" }), "utf8");
     await assert.rejects(
-      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.4", "0.10.0"]),
+      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.5", "0.10.0"]),
       /below the stable 11\.1\.1 boundary/,
     );
     await rm(join(packageRoot, "node_modules", "uuid"), { recursive: true, force: true });
@@ -94,17 +94,17 @@ test("release install policy verifies exact packages and the safe uuid boundary"
     await mkdir(nestedUuid, { recursive: true });
     await writeFile(join(nestedExceljs, "package.json"), JSON.stringify({ version: "4.4.0" }), "utf8");
     await writeFile(join(nestedUuid, "package.json"), JSON.stringify({ version: "11.1.1" }), "utf8");
-    await execFile(process.execPath, [policy, "verify", packageRoot, "0.2.4", "0.10.0"]);
+    await execFile(process.execPath, [policy, "verify", packageRoot, "0.2.5", "0.10.0"]);
 
     await writeFile(join(packageRoot, "package.json"), JSON.stringify({ dependencies: { "sustech-course-advisor": "file:../../source-checkout" } }), "utf8");
     await assert.rejects(
-      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.4", "0.10.0"]),
+      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.5", "0.10.0"]),
       /no longer points to the verified GitHub Release archive/,
     );
     await writeFile(join(packageRoot, "package.json"), JSON.stringify({ dependencies: { "sustech-course-advisor": advisorSpecifier } }), "utf8");
     await writeFile(join(packageRoot, "package-lock.json"), JSON.stringify({ packages: { "node_modules/sustech-course-advisor": { resolved: "../../source-checkout", link: true } } }), "utf8");
     await assert.rejects(
-      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.4", "0.10.0"]),
+      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.5", "0.10.0"]),
       /lock entry is not the verified GitHub Release archive/,
     );
   } finally {
@@ -280,6 +280,48 @@ test("schema v1 profiles and results migrate conservatively to schema v2", async
     assert.equal(migratedProfile.curriculum.courses[0].program, "main-program");
     assert.equal(migratedResult.schemaVersion, "2");
     assert.equal(migratedResult.strategies[0].mainProgramCredits, 3);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("CLI init consumes exactly eleven redirected answers and rejects malformed streams", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "advisor-init-input-"));
+  const profilePath = join(directory, "created-profile.json");
+  const incompletePath = join(directory, "incomplete-profile.json");
+  const surplusPath = join(directory, "surplus-profile.json");
+  const script = join(directory, "fake-sustech.mjs");
+  const executable = process.platform === "win32" ? join(directory, "fake-sustech.cmd") : script;
+  const cli = fileURLToPath(new URL("../cli.js", import.meta.url));
+  const answers = ["2023", "Software Engineering", "", "Synthetic official curriculum", "y", "0", "6", "8", "CS101,MA101", "", "computing"].join("\n") + "\n";
+  try {
+    await writeFile(script, "process.stdout.write(JSON.stringify({ok:true,data:{}}));\n", "utf8");
+    if (process.platform === "win32") await writeFile(executable, `@echo off\r\n"${process.execPath}" "%~dp0fake-sustech.mjs" %*\r\n`, "utf8");
+    else await chmod(executable, 0o700);
+
+    const complete = spawnSync(process.execPath, [cli, "init", "--path", profilePath], {
+      input: answers, encoding: "utf8", env: { ...process.env, SUSTECH_BIN: executable },
+    });
+    assert.equal(complete.status, 0, complete.stderr);
+    const created = JSON.parse(await readFile(profilePath, "utf8")) as AdvisorProfile;
+    assert.equal(created.schemaVersion, "2");
+    assert.equal(created.identity.major, "Software Engineering");
+    assert.deepEqual(created.preferences.mustInclude, ["CS101", "MA101"]);
+
+    const incomplete = spawnSync(process.execPath, [cli, "init", "--path", incompletePath], {
+      input: "2023\n", encoding: "utf8", env: { ...process.env, SUSTECH_BIN: executable },
+    });
+    assert.notEqual(incomplete.status, 0);
+    assert.match(incomplete.stderr, /exactly 11 answers/i);
+    await assert.rejects(access(incompletePath));
+
+    const surplus = spawnSync(process.execPath, [cli, "init", "--path", surplusPath], {
+      input: answers.replace("Synthetic official curriculum\n", "unexpected extra line\nSynthetic official curriculum\n"),
+      encoding: "utf8", env: { ...process.env, SUSTECH_BIN: executable },
+    });
+    assert.notEqual(surplus.status, 0);
+    assert.match(surplus.stderr, /exactly 11 answers/i);
+    await assert.rejects(access(surplusPath));
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
