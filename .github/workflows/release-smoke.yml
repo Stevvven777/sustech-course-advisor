@@ -6,7 +6,7 @@ on:
       version:
         description: Published advisor version without the v prefix
         required: true
-        default: "0.2.3"
+        default: "0.2.4"
         type: string
 
 permissions:
@@ -47,3 +47,33 @@ jobs:
           SUSTECH_ADVISOR_VERSION: ${{ inputs.version }}
           SUSTECH_ADVISOR_INSTALL_ROOT: ${{ runner.temp }}/sustech-course-advisor-release-smoke
         run: '& ./skills/sustech-course-advisor/scripts/bootstrap.ps1'
+
+      - name: Diagnose a failed Windows consumer install
+        if: failure() && runner.os == 'Windows'
+        shell: pwsh
+        env:
+          SUSTECH_ADVISOR_INSTALL_ROOT: ${{ runner.temp }}/sustech-course-advisor-release-smoke
+        run: |
+          $packageRoot = Join-Path $env:SUSTECH_ADVISOR_INSTALL_ROOT "packages"
+          node --version
+          npm.cmd --version
+          if (Test-Path (Join-Path $packageRoot "package.json")) {
+            Write-Output "Consumer manifest:"
+            Get-Content (Join-Path $packageRoot "package.json")
+          }
+          if (-not (Test-Path $packageRoot)) {
+            Write-Output "The consumer package root was not created before the failure."
+            exit 0
+          }
+          Push-Location -LiteralPath $packageRoot
+          try {
+            if (Test-Path "package-lock.json") {
+              Write-Output "Advisor lock entry:"
+              node -e "const l=require('./package-lock.json'); console.log(JSON.stringify(l.packages?.['node_modules/sustech-course-advisor'] ?? null, null, 2))"
+            }
+            Write-Output "Installed dependency tree:"
+            npm.cmd ls --all --json
+          } finally {
+            Pop-Location
+          }
+          exit 0

@@ -25,12 +25,14 @@ for (const [name, script] of [["POSIX", posixBootstrap], ["PowerShell", powershe
   if (!script.includes(manifest.version)) throw new Error(`${name} bootstrap version differs from package.json.`);
   if (!script.includes("Stevvven777/sustech-course-advisor")) throw new Error(`${name} bootstrap is not pinned to the project GitHub repository.`);
   if (!script.includes(".sha256")) throw new Error(`${name} bootstrap does not fetch the advisor checksum asset.`);
-  if (!script.includes("install-policy.mjs") || !script.includes("audit --prefix")) throw new Error(`${name} bootstrap does not enforce and audit the installed runtime dependency policy.`);
+  if (!script.includes("install-policy.mjs") || !script.includes("audit --omit=dev")) throw new Error(`${name} bootstrap does not enforce and audit the installed runtime dependency policy.`);
   if (/view\s+["']?sustech-course-advisor@/i.test(script)) throw new Error(`${name} bootstrap still treats npm as the advisor publication channel.`);
 }
 if (!posixBootstrap.includes("shasum") || !posixBootstrap.includes("sha256sum")) throw new Error("POSIX bootstrap must support a SHA-256 verifier.");
+if (!posixBootstrap.includes('cd "$PACKAGE_ROOT"') || /(?:install|audit) --prefix "\$PACKAGE_ROOT"/.test(posixBootstrap)) throw new Error("POSIX npm install and audit must run from the isolated consumer root without --prefix.");
 if (!powershellBootstrap.includes("Get-FileHash")) throw new Error("PowerShell bootstrap must verify the advisor archive hash.");
-if (!installPolicy.includes('file:../releases/${assetName}') || !installPolicy.includes('uuid: "^11.1.1"')) throw new Error("Installation policy does not retain the verified archive or enforce the reviewed uuid boundary.");
+if (!powershellBootstrap.includes("Push-Location -LiteralPath $PackageRoot") || /(?:install|audit) --prefix \$PackageRoot/.test(powershellBootstrap)) throw new Error("PowerShell npm install and audit must run from the isolated consumer root without --prefix.");
+if (!installPolicy.includes('file:../releases/${assetName}') || !installPolicy.includes('uuid: "^11.1.1"') || !installPolicy.includes("expectedAdvisorSpecifier") || !installPolicy.includes("lockedAdvisor.link === true")) throw new Error("Installation policy does not retain and verify the Release archive or enforce the reviewed uuid boundary.");
 if (!powershellBootstrap.trimEnd().endsWith("exit 0")) throw new Error("PowerShell bootstrap must clear a non-ready doctor exit after validating installation readiness.");
 if (!releaseWorkflow.includes('tags: ["v*"]') || !releaseWorkflow.includes("gh release create")) throw new Error("GitHub Release workflow is missing its tag trigger or publication step.");
 if (!releaseSmokeWorkflow.includes("workflow_dispatch:") || !releaseSmokeWorkflow.includes("bootstrap.sh") || !releaseSmokeWorkflow.includes("bootstrap.ps1")) throw new Error("Cross-platform GitHub Release smoke workflow is incomplete.");
