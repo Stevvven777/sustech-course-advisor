@@ -29,7 +29,7 @@ const execFile = promisify(execFileCallback);
 test("release install policy creates a pinned consumer root and rejects unrelated manifests", async () => {
   const directory = await mkdtemp(join(tmpdir(), "advisor-install-policy-"));
   const packageRoot = join(directory, "packages");
-  const archiveName = "sustech-course-advisor-0.2.6.tgz";
+  const archiveName = "sustech-course-advisor-0.2.7.tgz";
   const archive = join(directory, archiveName);
   const policy = fileURLToPath(new URL("../../skills/sustech-course-advisor/scripts/install-policy.mjs", import.meta.url));
   try {
@@ -67,24 +67,24 @@ test("release install policy verifies exact packages and the safe uuid boundary"
     for (const name of ["sustech-course-advisor", "sustech-cli", "exceljs", "uuid"]) {
       await mkdir(join(packageRoot, "node_modules", name), { recursive: true });
     }
-    const advisorSpecifier = "file:../releases/sustech-course-advisor-0.2.6.tgz";
+    const advisorSpecifier = "file:../releases/sustech-course-advisor-0.2.7.tgz";
     await writeFile(join(packageRoot, "package.json"), JSON.stringify({ dependencies: { "sustech-course-advisor": advisorSpecifier } }), "utf8");
-    await writeFile(join(packageRoot, "package-lock.json"), JSON.stringify({ packages: { "node_modules/sustech-course-advisor": { version: "0.2.6", resolved: advisorSpecifier } } }), "utf8");
-    await writeFile(join(packageRoot, "node_modules", "sustech-course-advisor", "package.json"), JSON.stringify({ version: "0.2.6" }), "utf8");
+    await writeFile(join(packageRoot, "package-lock.json"), JSON.stringify({ packages: { "node_modules/sustech-course-advisor": { version: "0.2.7", resolved: advisorSpecifier } } }), "utf8");
+    await writeFile(join(packageRoot, "node_modules", "sustech-course-advisor", "package.json"), JSON.stringify({ version: "0.2.7" }), "utf8");
     await writeFile(join(packageRoot, "node_modules", "sustech-cli", "package.json"), JSON.stringify({ version: "0.10.0" }), "utf8");
     await writeFile(join(packageRoot, "node_modules", "exceljs", "package.json"), JSON.stringify({ version: "4.4.0" }), "utf8");
     const uuidManifest = join(packageRoot, "node_modules", "uuid", "package.json");
     await writeFile(uuidManifest, JSON.stringify({ version: "11.1.1" }), "utf8");
-    await execFile(process.execPath, [policy, "verify", packageRoot, "0.2.6", "0.10.0"]);
+    await execFile(process.execPath, [policy, "verify", packageRoot, "0.2.7", "0.10.0"]);
 
     await writeFile(uuidManifest, JSON.stringify({ version: "8.3.2" }), "utf8");
     await assert.rejects(
-      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.6", "0.10.0"]),
+      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.7", "0.10.0"]),
       /below the stable 11\.1\.1 boundary/,
     );
     await writeFile(uuidManifest, JSON.stringify({ version: "11.1.1-0" }), "utf8");
     await assert.rejects(
-      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.6", "0.10.0"]),
+      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.7", "0.10.0"]),
       /below the stable 11\.1\.1 boundary/,
     );
     await rm(join(packageRoot, "node_modules", "uuid"), { recursive: true, force: true });
@@ -94,17 +94,17 @@ test("release install policy verifies exact packages and the safe uuid boundary"
     await mkdir(nestedUuid, { recursive: true });
     await writeFile(join(nestedExceljs, "package.json"), JSON.stringify({ version: "4.4.0" }), "utf8");
     await writeFile(join(nestedUuid, "package.json"), JSON.stringify({ version: "11.1.1" }), "utf8");
-    await execFile(process.execPath, [policy, "verify", packageRoot, "0.2.6", "0.10.0"]);
+    await execFile(process.execPath, [policy, "verify", packageRoot, "0.2.7", "0.10.0"]);
 
     await writeFile(join(packageRoot, "package.json"), JSON.stringify({ dependencies: { "sustech-course-advisor": "file:../../source-checkout" } }), "utf8");
     await assert.rejects(
-      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.6", "0.10.0"]),
+      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.7", "0.10.0"]),
       /no longer points to the verified GitHub Release archive/,
     );
     await writeFile(join(packageRoot, "package.json"), JSON.stringify({ dependencies: { "sustech-course-advisor": advisorSpecifier } }), "utf8");
     await writeFile(join(packageRoot, "package-lock.json"), JSON.stringify({ packages: { "node_modules/sustech-course-advisor": { resolved: "../../source-checkout", link: true } } }), "utf8");
     await assert.rejects(
-      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.6", "0.10.0"]),
+      execFile(process.execPath, [policy, "verify", packageRoot, "0.2.7", "0.10.0"]),
       /lock entry is not the verified GitHub Release archive/,
     );
   } finally {
@@ -647,6 +647,50 @@ test("a timed SUSTech child is terminated with a stable timeout code", async () 
       runSustech(["tis", "courses", "search", "CS101"], { executable, timeoutMs: 30 }),
       (error: unknown) => error instanceof SustechCommandError && error.code === "COMMAND_TIMEOUT",
     );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("the default timeout returns and force-kills a child that ignores SIGTERM", { timeout: 20_000 }, async () => {
+  const directory = await mkdtemp(join(tmpdir(), "advisor-default-timeout-"));
+  const marker = join(directory, "pid.txt");
+  const helper = join(directory, "slow-sustech.mjs");
+  let executable = helper;
+  const processExists = (pid: number): boolean => {
+    try { process.kill(pid, 0); return true; }
+    catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "ESRCH") return false;
+      throw error;
+    }
+  };
+  try {
+    await writeFile(helper, [
+      'import { writeFileSync } from "node:fs";',
+      `writeFileSync(${JSON.stringify(marker)}, String(process.pid));`,
+      'process.on("SIGTERM", () => {});',
+      'setInterval(() => {}, 1_000);',
+    ].join("\n"), "utf8");
+    if (process.platform === "win32") {
+      executable = join(directory, "slow sustech.cmd");
+      await writeFile(executable, `@echo off\r\n"${process.execPath}" "${helper}" %*\r\n`, "utf8");
+    } else {
+      await writeFile(helper, `#!${process.execPath}\n${await readFile(helper, "utf8")}`, "utf8");
+      await chmod(helper, 0o700);
+    }
+
+    const started = Date.now();
+    await assert.rejects(
+      runSustech(["version"], { executable }),
+      (error: unknown) => error instanceof SustechCommandError && error.code === "COMMAND_TIMEOUT",
+    );
+    const elapsedMs = Date.now() - started;
+    assert.ok(elapsedMs >= 9_000 && elapsedMs < 13_000, `default timeout returned after ${elapsedMs}ms`);
+
+    const pid = Number(await readFile(marker, "utf8"));
+    const cleanupDeadline = Date.now() + 3_000;
+    while (processExists(pid) && Date.now() < cleanupDeadline) await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.equal(processExists(pid), false, "timed child process still exists after forced cleanup");
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

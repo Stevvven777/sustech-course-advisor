@@ -2,6 +2,8 @@
 
 Use the smallest command that answers the current decision. Keep upstream payloads out of chat and persisted artifacts; retain only the whitelisted fields needed by the next stage.
 
+Every upstream `sustech` child has a ten-second default timeout unless a documented workflow supplies a stricter per-stage value inside its bounded total budget. `COMMAND_TIMEOUT` ends the current compatibility command; do not silently retry `init`, `refresh`, or `preview`, and never treat a timed-out preview as permission to apply anything.
+
 ## Readiness and authoritative inputs
 
 - `sustech-advisor doctor --profile NAME --live`: checks the local advisor, campus CLI capabilities, credential backend, and a live read-only TIS request. A partial report is not readiness.

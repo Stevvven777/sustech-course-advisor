@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $NodeVersion = if ($env:SUSTECH_ADVISOR_NODE_VERSION) { $env:SUSTECH_ADVISOR_NODE_VERSION } else { "20.18.0" }
-$AdvisorVersion = if ($env:SUSTECH_ADVISOR_VERSION) { $env:SUSTECH_ADVISOR_VERSION } else { "0.2.6" }
+$AdvisorVersion = if ($env:SUSTECH_ADVISOR_VERSION) { $env:SUSTECH_ADVISOR_VERSION } else { "0.2.7" }
 $SustechVersion = if ($env:SUSTECH_CLI_VERSION) { $env:SUSTECH_CLI_VERSION } else { "0.10.0" }
 $AdvisorRepository = if ($env:SUSTECH_ADVISOR_RELEASE_REPOSITORY) { $env:SUSTECH_ADVISOR_RELEASE_REPOSITORY } else { "Stevvven777/sustech-course-advisor" }
 $AdvisorReleaseTag = if ($env:SUSTECH_ADVISOR_RELEASE_TAG) { $env:SUSTECH_ADVISOR_RELEASE_TAG } else { "v$AdvisorVersion" }
