@@ -15,7 +15,7 @@ import { renderStrategyIcs } from "../exporters/ics.js";
 import { buildWorkbook } from "../exporters/xlsx.js";
 import { courseColorArgb, courseColorCss } from "../exporters/colors.js";
 import { inspectEnvironment, versionAtLeast } from "../core/environment.js";
-import { DEFAULT_SUSTECH_COMMAND_TIMEOUT_MS, proxyModeFromEnv, runSustech, SustechCommandError, sustechChildEnv } from "../core/sustech.js";
+import { proxyModeFromEnv, runSustech, SustechCommandError, sustechChildEnv } from "../core/sustech.js";
 import { loadProfile, loadResult } from "../core/store.js";
 import { assertDiagnosticSafe, createDiagnosticReport, writeRollingDiagnostic } from "../core/diagnostics.js";
 import { normalizeCatalogRows } from "../core/catalog.js";
@@ -25,10 +25,6 @@ import { fetchLiveRecommendationSources } from "../core/planning.js";
 import type { AdvisorProfile, CourseSection, NcesCourseEvidence } from "../types.js";
 
 const execFile = promisify(execFileCallback);
-
-test("SUSTECH children have a ten-second default timeout", () => {
-  assert.equal(DEFAULT_SUSTECH_COMMAND_TIMEOUT_MS, 10_000);
-});
 
 test("release install policy creates a pinned consumer root and rejects unrelated manifests", async () => {
   const directory = await mkdtemp(join(tmpdir(), "advisor-install-policy-"));
@@ -651,6 +647,50 @@ test("a timed SUSTech child is terminated with a stable timeout code", async () 
       runSustech(["tis", "courses", "search", "CS101"], { executable, timeoutMs: 30 }),
       (error: unknown) => error instanceof SustechCommandError && error.code === "COMMAND_TIMEOUT",
     );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("the default timeout returns and force-kills a child that ignores SIGTERM", { timeout: 20_000 }, async () => {
+  const directory = await mkdtemp(join(tmpdir(), "advisor-default-timeout-"));
+  const marker = join(directory, "pid.txt");
+  const helper = join(directory, "slow-sustech.mjs");
+  let executable = helper;
+  const processExists = (pid: number): boolean => {
+    try { process.kill(pid, 0); return true; }
+    catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "ESRCH") return false;
+      throw error;
+    }
+  };
+  try {
+    await writeFile(helper, [
+      'import { writeFileSync } from "node:fs";',
+      `writeFileSync(${JSON.stringify(marker)}, String(process.pid));`,
+      'process.on("SIGTERM", () => {});',
+      'setInterval(() => {}, 1_000);',
+    ].join("\n"), "utf8");
+    if (process.platform === "win32") {
+      executable = join(directory, "slow sustech.cmd");
+      await writeFile(executable, `@echo off\r\n"${process.execPath}" "${helper}" %*\r\n`, "utf8");
+    } else {
+      await writeFile(helper, `#!${process.execPath}\n${await readFile(helper, "utf8")}`, "utf8");
+      await chmod(helper, 0o700);
+    }
+
+    const started = Date.now();
+    await assert.rejects(
+      runSustech(["version"], { executable }),
+      (error: unknown) => error instanceof SustechCommandError && error.code === "COMMAND_TIMEOUT",
+    );
+    const elapsedMs = Date.now() - started;
+    assert.ok(elapsedMs >= 9_000 && elapsedMs < 13_000, `default timeout returned after ${elapsedMs}ms`);
+
+    const pid = Number(await readFile(marker, "utf8"));
+    const cleanupDeadline = Date.now() + 3_000;
+    while (processExists(pid) && Date.now() < cleanupDeadline) await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.equal(processExists(pid), false, "timed child process still exists after forced cleanup");
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
