@@ -19,6 +19,7 @@ const [readme, environment, posix, powershell, smoke, tests] = await Promise.all
 
 const versions = (source, pattern) => [...source.matchAll(pattern)].map((match) => match[1]);
 const exact = (values, count) => values.length === count && values.every((value) => value === version);
+const exactlyOne = (source, pattern) => [...source.matchAll(pattern)].length === 1;
 const checks = [
   ["package version", /^\d+\.\d+\.\d+$/.test(version)],
   ["root lockfile version", lock.version === version && lock.packages?.[""]?.version === version],
@@ -34,7 +35,9 @@ const checks = [
   ], 2)],
   ["POSIX bootstrap default", exact(versions(posix, /^ADVISOR_VERSION=\$\{SUSTECH_ADVISOR_VERSION:-(\d+\.\d+\.\d+)\}\r?$/gm), 1)],
   ["PowerShell bootstrap default", exact(versions(powershell, /^\$AdvisorVersion = if \(\$env:SUSTECH_ADVISOR_VERSION\) \{ \$env:SUSTECH_ADVISOR_VERSION \} else \{ "(\d+\.\d+\.\d+)" \}\r?$/gm), 1)],
-  ["Release smoke default", exact(versions(smoke, /^\s{8}default: "(\d+\.\d+\.\d+)"\r?$/gm), 1)],
+  ["Release smoke default and dispatch guards", exact(versions(smoke, /^\s{8}default: "(\d+\.\d+\.\d+)"\r?$/gm), 1)
+    && exactlyOne(smoke, /^\s{10}test "\$REQUESTED_VERSION" = "\$package_version"\r?$/gm)
+    && exactlyOne(smoke, /^\s{10}test "\$EXPECTED_VERSION" = "\$package_version"\r?$/gm)],
   ["release-policy fixtures", exact([
     ...versions(tests, /sustech-course-advisor-(\d+\.\d+\.\d+)\.tgz/g),
     ...versions(tests, /packageRoot, "(\d+\.\d+\.\d+)", "0\.10\.0"/g),
