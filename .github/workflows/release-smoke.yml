@@ -1,0 +1,49 @@
+name: Release smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published advisor version without the v prefix
+        required: true
+        default: "0.2.0"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: Install v${{ inputs.version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Check out the published tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ format('v{0}', inputs.version) }}
+
+      - name: Set up supported Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20.18.0
+          cache: npm
+
+      - name: Install from the public Release on macOS or Linux
+        if: runner.os != 'Windows'
+        env:
+          SUSTECH_ADVISOR_VERSION: ${{ inputs.version }}
+          SUSTECH_ADVISOR_INSTALL_ROOT: ${{ runner.temp }}/sustech-course-advisor-release-smoke
+        run: sh skills/sustech-course-advisor/scripts/bootstrap.sh
+
+      - name: Install from the public Release on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          SUSTECH_ADVISOR_VERSION: ${{ inputs.version }}
+          SUSTECH_ADVISOR_INSTALL_ROOT: ${{ runner.temp }}/sustech-course-advisor-release-smoke
+        run: '& ./skills/sustech-course-advisor/scripts/bootstrap.ps1'
