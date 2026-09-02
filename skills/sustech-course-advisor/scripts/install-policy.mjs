@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 
 const [operation, ...args] = process.argv.slice(2);
@@ -42,7 +43,10 @@ if (operation === "prepare") {
   const root = resolve(rootInput);
   const installedAdvisor = JSON.parse(readFileSync(join(root, "node_modules", "sustech-course-advisor", "package.json"), "utf8")).version;
   const installedCli = JSON.parse(readFileSync(join(root, "node_modules", "sustech-cli", "package.json"), "utf8")).version;
-  const installedUuid = JSON.parse(readFileSync(join(root, "node_modules", "uuid", "package.json"), "utf8")).version;
+  const requireFromAdvisor = createRequire(join(root, "node_modules", "sustech-course-advisor", "package.json"));
+  const exceljsPackagePath = requireFromAdvisor.resolve("exceljs/package.json");
+  const requireFromExceljs = createRequire(exceljsPackagePath);
+  const installedUuid = JSON.parse(readFileSync(requireFromExceljs.resolve("uuid/package.json"), "utf8")).version;
   if (installedAdvisor !== advisorVersion) throw new Error(`Expected advisor ${advisorVersion}, received ${installedAdvisor}.`);
   if (installedCli !== cliVersion) throw new Error(`Expected CLI ${cliVersion}, received ${installedCli}.`);
   const versionParts = installedUuid.split(".");
