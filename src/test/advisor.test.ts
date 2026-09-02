@@ -439,6 +439,30 @@ test("doctor bounds a hanging credential-store status check without breaking ins
   assert.deepEqual(report.authenticationErrors, ["auth status: COMMAND_TIMEOUT"]);
 });
 
+test("doctor projects an upstream credential-helper timeout without suggesting login", async () => {
+  const commands = ["version","capabilities","consequences","auth status","auth check","tis courses search","tis courses available","tis degree progress","nces search","tis selection preview"];
+  const report = await inspectEnvironment({
+    run: async (args) => {
+      const command = args.filter((arg) => !arg.startsWith("--") && arg !== "default").join(" ");
+      if (command === "version") return { version:"0.10.0" };
+      if (command === "capabilities") return { capabilities:commands.map((name)=>({command:name})) };
+      if (command === "consequences") return { consequences:["tis.enroll","tis.cart.update"].map((operation)=>({operation})) };
+      if (command === "auth status") return { configured:true, credentialAvailable:false, backendAvailable:false, backend:"macos-keychain", persistent:true, reasonCode:"CREDENTIAL_STORE_TIMEOUT", reason:"safe generic reason" };
+      throw new Error(`unexpected command: ${args.join(" ")}`);
+    },
+  });
+  assert.equal(report.installationReady, true);
+  assert.equal(report.authenticationReady, false);
+  assert.deepEqual(report.authenticationErrors, ["auth status: CREDENTIAL_STORE_TIMEOUT"]);
+  assert.equal((report.authentication as Record<string,unknown>).reasonCode, "CREDENTIAL_STORE_TIMEOUT");
+  assert.doesNotMatch((report.remediation as string[]).join(" "), /auth login/i);
+
+  const diagnostic = createDiagnosticReport(report, "2026-09-02T00:00:00.000Z");
+  assert.equal(diagnostic.credentialStore.reasonCode, "CREDENTIAL_STORE_TIMEOUT");
+  assert.deepEqual(diagnostic.failures.codes, ["CREDENTIAL_STORE_TIMEOUT"]);
+  assert.doesNotMatch(JSON.stringify(diagnostic), /safe generic reason/);
+});
+
 test("doctor never accepts an environment probe timeout above the documented ten-second cap", async () => {
   await assert.rejects(
     inspectEnvironment({ commandTimeoutMs:10_001, run:async () => ({}) }),

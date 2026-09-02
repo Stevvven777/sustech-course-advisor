@@ -82,6 +82,8 @@ export async function inspectEnvironment(options: EnvironmentOptions = {}): Prom
   });
   const credentialAvailable = auth.credentialAvailable === true;
   const backendAvailable = auth.backendAvailable === true;
+  const credentialReasonCode = projectedCredentialReasonCode(auth.reasonCode);
+  if (credentialReasonCode) authenticationErrors.push(`auth status: ${credentialReasonCode}`);
   const cliContractReady = installationErrors.length === 0 && missingCapabilities.length === 0 && missingConsequences.length === 0;
   const preflightReadyForLiveAuth = runtimeOk && manifestOk && buildPresent && runtimeDependenciesAvailable && cliContractReady;
 
@@ -113,8 +115,9 @@ export async function inspectEnvironment(options: EnvironmentOptions = {}): Prom
   if (!runtimeDependenciesAvailable) remediation.push(`Install the advisor runtime dependencies at ${projectRoot} before planning or exporting.`);
   if (installationErrors.length || missingCapabilities.length || missingConsequences.length) remediation.push("Install or select a compatible sustech CLI, then rerun doctor.");
   if (optionalFeatures.some((feature) => !feature.available)) remediation.push("Automatic curriculum discovery is unavailable; use a confirmed official public PDF or a student-provided official PDF and retain its URL, digest, and page references.");
-  if (!backendAvailable) remediation.push("Use an available supported credential source for sustech.");
-  if (!credentialAvailable) remediation.push(`Run sustech auth login --profile ${profile} --service tis in an interactive terminal; never put the password in chat or command arguments.`);
+  if (credentialReasonCode) remediation.push(`Resolve ${credentialReasonCode} in the operating-system credential store; do not retry or start login automatically.`);
+  else if (!backendAvailable) remediation.push("Use an available supported credential source for sustech.");
+  if (!credentialAvailable && !credentialReasonCode) remediation.push(`Run sustech auth login --profile ${profile} --service tis in an interactive terminal; never put the password in chat or command arguments.`);
   if (options.live && liveAuthentication.status === "failed") remediation.push("Resolve the reported TIS authentication or network issue; do not repeatedly retry an interactive CAS challenge.");
 
   return {
@@ -153,6 +156,7 @@ export async function inspectEnvironment(options: EnvironmentOptions = {}): Prom
       backend: auth.backend,
       backendAvailable,
       persistent: auth.persistent === true,
+      reasonCode: credentialReasonCode,
       reason: auth.reason,
       live: liveAuthentication,
     },
@@ -211,4 +215,8 @@ async function exists(path: string): Promise<boolean> {
 function message(error: unknown): string {
   if (error && typeof error === "object" && "code" in error) return String(error.code).replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 64) || "UNKNOWN_ERROR";
   return "UNKNOWN_ERROR";
+}
+
+function projectedCredentialReasonCode(value: unknown): string | undefined {
+  return typeof value === "string" && /^CREDENTIAL_[A-Z0-9_]{1,52}$/.test(value) ? value : undefined;
 }

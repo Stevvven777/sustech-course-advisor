@@ -18,7 +18,7 @@ export interface DiagnosticReport {
     unavailableOptionalFeatures: Array<{ name: string; missingCapabilities: string[]; missingConsequences: string[] }>;
   };
   network: { proxyMode: string };
-  credentialStore: { available: boolean; credentialAvailable: boolean; backend?: string; liveStatus?: string };
+  credentialStore: { available: boolean; credentialAvailable: boolean; backend?: string; reasonCode?: string; liveStatus?: string };
   failures: { count: number; codes: string[] };
 }
 
@@ -36,6 +36,7 @@ export function createDiagnosticReport(environment: Record<string, unknown>, gen
   const authentication = object(environment.authentication);
   const live = object(authentication.live);
   const errors = strings(environment.errors);
+  const credentialReasonCode = projectedCode(authentication.reasonCode);
   return {
     kind: "sustech-advisor-diagnostic",
     schemaVersion: "1",
@@ -67,6 +68,7 @@ export function createDiagnosticReport(environment: Record<string, unknown>, gen
       available: authentication.backendAvailable === true,
       credentialAvailable: authentication.credentialAvailable === true,
       ...(typeof authentication.backend === "string" ? { backend: authentication.backend } : {}),
+      ...(credentialReasonCode ? { reasonCode: credentialReasonCode } : {}),
       ...(typeof live.status === "string" ? { liveStatus: live.status } : {}),
     },
     failures: { count: errors.length, codes: errors.map(errorCode) },
@@ -117,4 +119,8 @@ function strings(value: unknown): string[] { return Array.isArray(value) ? value
 function errorCode(value: string): string {
   const suffix = value.includes(":") ? value.slice(value.indexOf(":") + 1) : value;
   return suffix.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "_").slice(0, 64) || "UNKNOWN_ERROR";
+}
+
+function projectedCode(value: unknown): string | undefined {
+  return typeof value === "string" && /^[A-Z][A-Z0-9_]{1,63}$/.test(value) ? value : undefined;
 }
