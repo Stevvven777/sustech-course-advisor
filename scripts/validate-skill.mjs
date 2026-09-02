@@ -28,6 +28,7 @@ for (const [name, script] of [["POSIX", posixBootstrap], ["PowerShell", powershe
 }
 if (!posixBootstrap.includes("shasum") || !posixBootstrap.includes("sha256sum")) throw new Error("POSIX bootstrap must support a SHA-256 verifier.");
 if (!powershellBootstrap.includes("Get-FileHash")) throw new Error("PowerShell bootstrap must verify the advisor archive hash.");
+if (!powershellBootstrap.trimEnd().endsWith("exit 0")) throw new Error("PowerShell bootstrap must clear a non-ready doctor exit after validating installation readiness.");
 if (!releaseWorkflow.includes('tags: ["v*"]') || !releaseWorkflow.includes("gh release create")) throw new Error("GitHub Release workflow is missing its tag trigger or publication step.");
 if (!releaseSmokeWorkflow.includes("workflow_dispatch:") || !releaseSmokeWorkflow.includes("bootstrap.sh") || !releaseSmokeWorkflow.includes("bootstrap.ps1")) throw new Error("Cross-platform GitHub Release smoke workflow is incomplete.");
 for (const [name, workflow] of [["release", releaseWorkflow], ["release smoke", releaseSmokeWorkflow]]) {

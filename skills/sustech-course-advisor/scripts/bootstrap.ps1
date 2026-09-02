@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $NodeVersion = if ($env:SUSTECH_ADVISOR_NODE_VERSION) { $env:SUSTECH_ADVISOR_NODE_VERSION } else { "20.18.0" }
-$AdvisorVersion = if ($env:SUSTECH_ADVISOR_VERSION) { $env:SUSTECH_ADVISOR_VERSION } else { "0.2.0" }
+$AdvisorVersion = if ($env:SUSTECH_ADVISOR_VERSION) { $env:SUSTECH_ADVISOR_VERSION } else { "0.2.1" }
 $SustechVersion = if ($env:SUSTECH_CLI_VERSION) { $env:SUSTECH_CLI_VERSION } else { "0.10.0" }
 $AdvisorRepository = if ($env:SUSTECH_ADVISOR_RELEASE_REPOSITORY) { $env:SUSTECH_ADVISOR_RELEASE_REPOSITORY } else { "Stevvven777/sustech-course-advisor" }
 $AdvisorReleaseTag = if ($env:SUSTECH_ADVISOR_RELEASE_TAG) { $env:SUSTECH_ADVISOR_RELEASE_TAG } else { "v$AdvisorVersion" }
@@ -105,3 +105,4 @@ try {
 Write-Output "Installation verified. Use these executables without changing PATH:"
 Write-Output (Join-Path $BinRoot "sustech.cmd")
 Write-Output (Join-Path $BinRoot "sustech-advisor.cmd")
+exit 0

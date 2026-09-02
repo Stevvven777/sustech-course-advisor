@@ -6,7 +6,7 @@ on:
       version:
         description: Published advisor version without the v prefix
         required: true
-        default: "0.2.0"
+        default: "0.2.1"
         type: string
 
 permissions:
