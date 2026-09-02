@@ -11,6 +11,15 @@ Run `sustech-advisor diagnose --profile NAME` after the failing stage. Add `--li
 
 Every `sustech` subprocess started by `doctor` or `diagnose` has a ten-second upper bound. A credential backend or authenticated check that does not return is recorded as `COMMAND_TIMEOUT`; the diagnostic must still finish without repeatedly invoking the credential store. Treat that code as a local credential-backend problem first, not as evidence that the advisor installation or proxy is broken.
 
+Keep the timeout layers distinct. `COMMAND_TIMEOUT` means the whole installed
+`sustech` command exceeded the advisor's boundary. An upstream version that
+includes bounded credential helpers may instead finish normally with
+`reasonCode: CREDENTIAL_STORE_TIMEOUT` in `auth status`; that means the
+operating-system helper exceeded its own five-second deadline. Neither code
+proves that credentials expired, and neither permits an automatic retry or
+login attempt. Retain the advisor boundary for compatibility with older
+upstream versions even after the upstream fix is released.
+
 It excludes SID, profile contents, grades, credentials, cookies, tokens, raw upstream payloads, queries, and absolute user paths. Do not add any of those fields to diagnostics.
 
 When collaboration is needed, create a sanitized JSON bundle with `--support-bundle FILE`. This is a local write only; it never uploads or opens an issue. Before submitting it externally, the agent must show the exact bundle file list, run the built-in privacy scan, name the destination, and obtain the user's explicit approval. Approval to diagnose or create a local bundle is not approval to submit it. If a reproduction needs unsafe data, replace it with a synthetic fixture under the repository's `debug/fixtures/` directory.
