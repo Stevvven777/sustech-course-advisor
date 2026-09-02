@@ -13,8 +13,29 @@ permissions:
   contents: read
 
 jobs:
+  version:
+    name: Resolve current Release version
+    runs-on: ubuntu-latest
+    outputs:
+      value: ${{ steps.package.outputs.version }}
+
+    steps:
+      - name: Check out the workflow revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Require the current package version
+        id: package
+        shell: bash
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          package_version=$(node -p "require('./package.json').version")
+          test "$REQUESTED_VERSION" = "$package_version"
+          echo "version=$package_version" >> "$GITHUB_OUTPUT"
+
   install:
-    name: Install v${{ inputs.version }} on ${{ matrix.os }}
+    needs: version
+    name: Install v${{ needs.version.outputs.value }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -25,7 +46,7 @@ jobs:
       - name: Check out the published tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ format('v{0}', inputs.version) }}
+          ref: ${{ format('v{0}', needs.version.outputs.value) }}
 
       - name: Set up supported Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -33,10 +54,18 @@ jobs:
           node-version: 20.18.0
           cache: npm
 
+      - name: Verify the checked-out package version
+        shell: bash
+        env:
+          EXPECTED_VERSION: ${{ needs.version.outputs.value }}
+        run: |
+          package_version=$(node -p "require('./package.json').version")
+          test "$EXPECTED_VERSION" = "$package_version"
+
       - name: Install from the public Release on macOS or Linux
         if: runner.os != 'Windows'
         env:
-          SUSTECH_ADVISOR_VERSION: ${{ inputs.version }}
+          SUSTECH_ADVISOR_VERSION: ${{ needs.version.outputs.value }}
           SUSTECH_ADVISOR_INSTALL_ROOT: ${{ runner.temp }}/sustech-course-advisor-release-smoke
         run: sh skills/sustech-course-advisor/scripts/bootstrap.sh
 
@@ -44,7 +73,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         env:
-          SUSTECH_ADVISOR_VERSION: ${{ inputs.version }}
+          SUSTECH_ADVISOR_VERSION: ${{ needs.version.outputs.value }}
           SUSTECH_ADVISOR_INSTALL_ROOT: ${{ runner.temp }}/sustech-course-advisor-release-smoke
         run: '& ./skills/sustech-course-advisor/scripts/bootstrap.ps1'
 
