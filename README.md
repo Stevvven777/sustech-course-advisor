@@ -7,6 +7,8 @@
 
 [简体中文](#简体中文) · [English](#english)
 
+[**🚀 中文快速开始**](#quick-start-cn) · [**🚀 English Quick Start**](#quick-start-en)
+
 [![Status](https://img.shields.io/badge/status-early%20preview-F59E0B)](#项目状态)
 [![Version](https://img.shields.io/badge/version-0.2.8-173F5F)](https://github.com/Stevvven777/sustech-course-advisor/releases/tag/v0.2.8)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A520.18.0-339933?logo=nodedotjs&logoColor=white)](./package.json)
@@ -26,6 +28,82 @@ Bring curriculum requirements, personal progress, live course supply, and commun
 ---
 
 # 简体中文
+
+<a id="quick-start-cn"></a>
+
+## 🚀 快速开始：选择适合你的入口
+
+> [!TIP]
+> 不确定自己属于哪一类，就选 **A：让 Agent 全程处理**。普通用户不需要手动安装 npm 包、解压运行时或排查环境。
+
+| 你的情况 | 选择 | 你需要负责 |
+| --- | --- | --- |
+| 不会或不想配置环境 | **A · Agent 全程处理（推荐）** | 发出安装请求，审核并批准明确的操作 |
+| 掌握基本 Git 命令 | **B · 克隆仓库并固定发布版本** | 克隆仓库，其余版本固定、安装和检查交给 Agent |
+| 完全理解项目原理 | **C · 从源码构建** | 自己控制依赖、构建、测试、运行方式与调试 |
+
+### A · 不会配置环境：让 Agent 全程处理（推荐）
+
+在支持 [Agent Skills](https://agentskills.io/)、本地文件和命令执行的 Agent 中新建对话，发送：
+
+> 请从本项目的[当前 GitHub Release](https://github.com/Stevvven777/sustech-course-advisor/releases/latest)为我安装完整的 `$sustech-course-advisor` Skill。请由你检查系统与安装位置，确认最新正式发布的 tag，下载对应 Release 资产及 SHA-256 文件并完成校验，安装 Skill、运行时和所需依赖，最后运行环境检查。联网、写入或系统级变更前，先向我说明来源、版本、位置和影响并征得确认；不要让我手动执行本可由你安全完成的步骤。
+
+Agent 应负责下载、校验、安装和验收。你只需要核对它提出的具体操作并决定是否批准，不需要把修复建议转换成命令。
+
+### B · 掌握基本 Git：克隆仓库并固定发布版本
+
+先克隆仓库：
+
+```bash
+git clone --depth 1 https://github.com/Stevvven777/sustech-course-advisor.git
+cd sustech-course-advisor
+```
+
+然后在能够访问该目录的 Agent 中发送：
+
+> 请先对照 GitHub Releases，把当前仓库固定到最新正式发布的 tag；然后安装完整的 `skills/sustech-course-advisor/`，不要只复制 `SKILL.md`。请根据我的操作系统运行对应的 bootstrap，安装并校验与该 Release 一致的运行时及依赖，运行 `doctor` 检查安装；需要个性化数据时，在我通过安全交互完成登录后再运行 `doctor --live`。需要联网或写入前先说明影响并征得确认。
+
+这条路径只要求你能够克隆并查看 Git 状态；Release tag 的确认与检出、依赖安装、跨平台 bootstrap 和就绪检查仍由 Agent 完成。不要在仓库根目录运行 `npm install`。
+
+### C · 完全理解项目原理：从源码构建
+
+如果你要审查实现、修改求解器、维护 Skill 或调试边界，可以直接使用锁文件构建：
+
+```bash
+git clone https://github.com/Stevvven777/sustech-course-advisor.git
+cd sustech-course-advisor
+npm ci
+npm run prepack
+node dist/cli.js help
+```
+
+克隆后、运行 `npm ci` 前，自行检出准备审查的 Release tag、分支或 commit。`npm ci` 在这里仅用于从锁文件安装源码开发依赖；Advisor 仍不发布到 npm。继续前建议阅读 [`package.json`](./package.json)、[Skill 主流程](./skills/sustech-course-advisor/SKILL.md)、[环境边界](./skills/sustech-course-advisor/references/environment.md)、[工具链](./skills/sustech-course-advisor/references/toolkit.md)和 [`debug/` 维护记录](./debug/README.md)。选择非发布 tag 时，应自行承担版本、依赖和测试结果的审查责任。
+
+### 分路径完成标准
+
+**A / B · Release 安装路径**
+
+- 安装了完整 Skill 目录，包括 `SKILL.md`、`references/` 和 `scripts/`；
+- Advisor 归档与同一 GitHub Release 提供的 SHA-256 一致；
+- Advisor 运行时版本与所选 Release tag 一致，默认绑定同一受控安装目录中由发布策略固定的上游 CLI，且没有全局安装；
+- `doctor` 确认安装、上游 CLI 能力和本地凭据状态；需要个性化数据时，登录后再由 `doctor --live` 检查实时 TIS 可达性。
+
+**C · 源码构建路径**
+
+- 记录实际检出的 tag、分支或 commit，并确认 `npm ci` 与 `npm run prepack` 通过；
+- 确认 `node dist/cli.js help` 可以启动；需要个性化数据时，依次运行源码入口的 `doctor`，并在安全登录后运行 `doctor --live`；
+- 除非正在测试 Release bootstrap，否则源码构建不要求下载或校验 Release 归档。
+
+所有路径都必须把安装状态、凭据状态和上游网络状态分开；TIS/CAS 超时不等于凭据失效，也不应触发自动重复登录。
+
+A / B 路径确认 Skill 可以加载后，新建对话并说；C 路径如果也导入了仓库内的 Skill，同样从这里开始：
+
+> 使用 `$sustech-course-advisor`，按照我的学年和专业推荐 2026 秋季课程。
+
+需要登录时，Agent 会引导你在安全的本地交互界面完成，不会在聊天中索要密码。环境和登录状态就绪后，它才会征求个人学业信息读取许可、请你确认脱敏摘要，再给出三套可比较的方案。
+
+> [!NOTE]
+> Advisor 的正式发布物只位于本仓库的 [GitHub Releases](https://github.com/Stevvven777/sustech-course-advisor/releases)，不发布到 npm。`.tgz` 是由 npm 打包工具生成、带校验值的 GitHub Release 资产，不是要求用户从 npm 获取的公共包。项目支持 macOS、Windows 和 Linux；不同客户端的 Skill 导入入口可能不同，通用项目级目录是 `.agents/skills/sustech-course-advisor/`。
 
 ## 它是什么
 
@@ -69,24 +147,6 @@ SUSTech Course Advisor 是一个面向南方科技大学学生的本地选课规
 | [`sustech.online`](https://sustech.online/) | 南科大术语、选课指南和学生经验 | 可信的社区辅助来源，不覆盖官方要求或实时 TIS 状态 |
 | NCES（经 `sustech` CLI） | 课程与教学团队评价证据 | 多人团队评分不拆分到单个教师或助教 |
 
-## 快速开始
-
-普通用户不需要学习下面的 CLI 命令。这个项目的主要入口就是随项目提供的 Agent Skill：
-
-1. 在支持 [Agent Skills](https://agentskills.io/) 的 Agent 中导入整个 [`skills/sustech-course-advisor`](./skills/sustech-course-advisor/) 文件夹，而不是只复制 `SKILL.md`；
-2. 新建对话，然后直接说：
-
-> 使用 `$sustech-course-advisor`，按照我的学年和专业推荐 2026 秋季课程。
-
-接下来 Agent 会自行说明流程并检查环境。缺少 Node.js、`sustech` 或 `sustech-advisor` 时，它会先说明安装来源、版本、位置和影响，在你确认后自动完成可执行的配置；需要登录时，它会引导你在安全的本地交互界面完成，不会在聊天中索要密码。环境就绪后，它才会征求个人信息读取许可、请你确认学籍摘要，再给出三套可比较的方案。
-
-Advisor 的正式发布物位于本仓库的 [GitHub Releases](https://github.com/Stevvven777/sustech-course-advisor/releases)，不发布到 npm。Skill 会固定到明确版本，下载发布归档及其 SHA-256 文件，校验后再安装到用户目录；npm 只用于解析运行时依赖和安装上游目前正式发布的 `sustech-cli`，不会执行全局安装。
-
-项目以 macOS、Windows 和 Linux 三端兼容为约束。核心逻辑使用跨平台 Node.js；文档在 shell 语法不同时分别给出 Windows PowerShell 与 macOS/Linux POSIX shell 写法。
-
-> [!NOTE]
-> 该 Skill 遵循开放的 Agent Skills 目录规范，可在**支持该规范**且能够读取本地文件、执行本地命令的 Agent 中复用。不同客户端的导入入口可能不同；通用的项目级目录是 `.agents/skills/sustech-course-advisor/`。Agent 可以帮助配置环境，但不会绕过联网下载、系统级安装、登录或个人信息读取所需的确认。
-
 ## CLI
 
 | 命令 | 作用 |
@@ -126,7 +186,7 @@ Advisor 的正式发布物位于本仓库的 [GitHub Releases](https://github.co
 以下内容面向希望从源码运行或参与开发的人。需要 Node.js 20.18.0 或更新版本。
 
 ```bash
-npm install
+npm ci
 npm run build
 node dist/cli.js help
 ```
@@ -146,8 +206,7 @@ node dist/cli.js recommend \
 质量检查：
 
 ```bash
-npm run check
-npm test
+npm run prepack
 ```
 
 ## 许可
@@ -157,6 +216,82 @@ npm test
 ---
 
 # English
+
+<a id="quick-start-en"></a>
+
+## 🚀 Quick start: choose your path
+
+> [!TIP]
+> If you are unsure which path fits, choose **A: let the Agent handle everything**. Regular users do not need to install npm packages, unpack runtimes, or troubleshoot the environment.
+
+| Your experience | Choose | What you handle |
+| --- | --- | --- |
+| You cannot or do not want to configure the environment | **A · Agent-managed setup (recommended)** | Send one request, review and approve clearly described operations |
+| You know basic Git commands | **B · Clone and pin a release** | Clone the repository, then delegate release pinning, setup, and checks to the Agent |
+| You fully understand the project | **C · Build from source** | Own dependency, build, test, execution, and debugging decisions |
+
+### A · No environment experience: let the Agent handle everything (recommended)
+
+Start a conversation in an Agent that supports [Agent Skills](https://agentskills.io/), local files, and shell execution, then send:
+
+> Install the complete `$sustech-course-advisor` Skill for me from the project's [current GitHub Release](https://github.com/Stevvven777/sustech-course-advisor/releases/latest). Inspect my platform and installation location, identify the latest formally published tag, download and verify its Release asset and SHA-256 file, install the Skill, runtime, and required dependencies, then run the environment checks. Before network access, writes, or system-level changes, show me the source, version, destination, and impact and obtain my approval. Do not make me perform steps that you can safely complete yourself.
+
+The Agent should own download, verification, installation, and acceptance checks. You only need to review each concrete operation and decide whether to approve it; you should not have to translate remediation into commands.
+
+### B · Basic Git experience: clone the repository and pin a release
+
+First clone the repository:
+
+```bash
+git clone --depth 1 https://github.com/Stevvven777/sustech-course-advisor.git
+cd sustech-course-advisor
+```
+
+Then send this request to an Agent that can access the checkout:
+
+> First compare this checkout with GitHub Releases and pin it to the latest formally published tag. Then install the complete `skills/sustech-course-advisor/` directory; do not copy only `SKILL.md`. Run the bootstrap matching my operating system, install and verify the runtime and dependencies for that Release, then run `doctor` to check the installation. If personalized data is needed, run `doctor --live` only after I complete login through the secure interactive prompt. Before network access or writes, explain the impact and obtain my approval.
+
+This path requires only enough Git knowledge to clone the repository and inspect its status. The Agent still identifies and checks out the Release tag, installs dependencies, runs the cross-platform bootstrap, and performs readiness checks. Do not run `npm install` at the repository root.
+
+### C · Full project understanding: build from source
+
+To review the implementation, change the solver, maintain the Skill, or debug boundaries, build directly from the lockfile:
+
+```bash
+git clone https://github.com/Stevvven777/sustech-course-advisor.git
+cd sustech-course-advisor
+npm ci
+npm run prepack
+node dist/cli.js help
+```
+
+After cloning and before running `npm ci`, check out the Release tag, branch, or commit you intend to review. Here, `npm ci` installs source-development dependencies from the lockfile; the Advisor is still not published to npm. Before continuing, review [`package.json`](./package.json), the [Skill workflow](./skills/sustech-course-advisor/SKILL.md), [environment boundaries](./skills/sustech-course-advisor/references/environment.md), the [toolkit](./skills/sustech-course-advisor/references/toolkit.md), and the [`debug/` maintenance records](./debug/README.md). If you select anything other than a published tag, you own review of versions, dependencies, and test results.
+
+### Completion criteria by path
+
+**A / B · Release installation paths**
+
+- the complete Skill directory is installed, including `SKILL.md`, `references/`, and `scripts/`;
+- the Advisor archive matches the SHA-256 published with the same GitHub Release;
+- the Advisor runtime version matches the selected Release tag, binds the upstream CLI pinned by that Release policy from the same controlled installation by default, and performs no global install;
+- `doctor` confirms installation, upstream CLI capabilities, and local credential state; when personalized data is needed, `doctor --live` checks live TIS reachability after login.
+
+**C · Source-build path**
+
+- record the tag, branch, or commit actually checked out, and confirm that `npm ci` and `npm run prepack` pass;
+- confirm that `node dist/cli.js help` starts; when personalized data is needed, run `doctor` through the source entry point, then run `doctor --live` after secure login;
+- a source build does not need to download or verify a Release archive unless it is specifically testing the Release bootstrap.
+
+Every path must keep installation, credential, and upstream network states separate. A TIS/CAS timeout is not equivalent to expired credentials and must not trigger an automatic login loop.
+
+After the Skill can be loaded on path A or B, start a new conversation and say. Path C can start the same way if the bundled Skill was also imported:
+
+> Use `$sustech-course-advisor` to recommend courses for Fall 2026 based on my year and major.
+
+When login is needed, the Agent will guide you through a secure local prompt and never ask for your password in chat. Only after the environment and login state are ready will it request permission for personal academic reads, ask you to confirm the redacted snapshot, and present three comparable plans.
+
+> [!NOTE]
+> Official Advisor artifacts are published only in this repository's [GitHub Releases](https://github.com/Stevvven777/sustech-course-advisor/releases), not to npm. The `.tgz` is a checksummed GitHub Release asset produced with npm's packing tool, not a public package users are expected to obtain from npm. The project supports macOS, Windows, and Linux. Skill import mechanisms vary by client; `.agents/skills/sustech-course-advisor/` is the common project-level location.
 
 ## What it is
 
@@ -200,24 +335,6 @@ Permission to read academic data never implies permission to write a profile, ex
 | [`sustech.online`](https://sustech.online/) | SUSTech terminology, planning guides, and student experience | Trusted community context; it does not override official requirements or live TIS state |
 | NCES through the `sustech` CLI | Course and teaching-team review evidence | Multi-person ratings are never assigned to one instructor or assistant |
 
-## Quick start
-
-Regular users do not need to learn the CLI commands below. The bundled Agent Skill is the primary way to use this project:
-
-1. Import the entire [`skills/sustech-course-advisor`](./skills/sustech-course-advisor/) folder into an Agent that supports [Agent Skills](https://agentskills.io/); do not copy only `SKILL.md`.
-2. Start a new conversation and simply say:
-
-> Use `$sustech-course-advisor` to recommend courses for Fall 2026 based on my year and major.
-
-The Agent will explain the flow and inspect the environment. If Node.js, `sustech`, or `sustech-advisor` is missing, it will first show the install source, version, destination, and impact, then complete the supported setup after you approve it. When login is needed, it will guide you through a secure local prompt and never ask for your password in chat. Only after the environment is ready will it request permission for personal academic reads, ask you to confirm the redacted snapshot, and present three comparable plans.
-
-The advisor's official artifacts are published in this repository's [GitHub Releases](https://github.com/Stevvven777/sustech-course-advisor/releases), not to npm. The Skill pins an exact release, downloads the archive and its SHA-256 file, verifies it, and installs it under the user's own directory. npm is used only to resolve runtime dependencies and install the upstream `sustech-cli` from its current official distribution channel; the bootstrap never performs a global install.
-
-The project treats macOS, Windows, and Linux support as a product constraint. Core behavior uses cross-platform Node.js, and the documentation gives separate Windows PowerShell and macOS/Linux POSIX shell commands when syntax differs.
-
-> [!NOTE]
-> The Skill follows the open Agent Skills directory format and can be reused by any **skills-compatible** Agent that can read local files and execute local commands. Import mechanisms vary by client; `.agents/skills/sustech-course-advisor/` is the common project-level location. The Agent can help configure the environment, but it cannot bypass confirmations required for downloads, system-wide installs, login, or personal-data access.
-
 ## CLI
 
 | Command | Purpose |
@@ -256,7 +373,7 @@ Reproducible bug reports, curriculum edge cases, and output ideas are welcome th
 This section is for contributors and people running directly from source. Node.js 20.18.0 or newer is required.
 
 ```bash
-npm install
+npm ci
 npm run build
 node dist/cli.js help
 ```
@@ -276,8 +393,7 @@ node dist/cli.js recommend \
 Quality checks:
 
 ```bash
-npm run check
-npm test
+npm run prepack
 ```
 
 ## License
